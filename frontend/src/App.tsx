@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:3001/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001/api";
 
 interface Property {
   uf: string;
@@ -556,32 +556,32 @@ export default function App() {
           </div>
 
           {stats && (
-            <div className="flex items-center gap-8 bg-white px-8 py-4 rounded-3xl shadow-sm border border-slate-100">
+            <div className="grid grid-cols-2 lg:flex items-center gap-6 lg:gap-8 bg-white px-6 lg:px-8 py-4 rounded-3xl shadow-sm border border-slate-100 w-full lg:w-auto">
               <div className="text-center">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">
                   Imóveis Na Base
                 </p>
-                <p className="text-xl font-black text-slate-900">
+                <p className="text-lg lg:text-xl font-black text-slate-900">
                   {stats.total?.toLocaleString()}
                 </p>
               </div>
-              <div className="w-px h-8 bg-slate-100" />
+              <div className="hidden lg:block w-px h-8 bg-slate-100" />
               <div className="text-center">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">
                   Cidades Cobertas
                 </p>
-                <p className="text-xl font-black text-slate-900">
+                <p className="text-lg lg:text-xl font-black text-slate-900">
                   {stats.cities?.toLocaleString()}
                 </p>
               </div>
               {filteredStats && filteredStats.average > 0 && (
                 <>
-                  <div className="w-px h-8 bg-slate-100" />
-                  <div className="text-center">
+                  <div className="hidden lg:block w-px h-8 bg-slate-100" />
+                  <div className="text-center col-span-2 lg:col-span-1 border-t lg:border-t-0 pt-4 lg:pt-0">
                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-tighter mb-1">
                       Média de Avaliação
                     </p>
-                    <p className="text-xl font-black text-slate-900">
+                    <p className="text-lg lg:text-xl font-black text-slate-900">
                       R${" "}
                       {filteredStats.average.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
@@ -591,12 +591,12 @@ export default function App() {
                   </div>
                   {filteredStats.median > 0 && (
                     <>
-                      <div className="w-px h-8 bg-slate-100" />
-                      <div className="text-center">
+                      <div className="hidden lg:block w-px h-8 bg-slate-100" />
+                      <div className="text-center col-span-2 lg:col-span-1 border-t lg:border-t-0 pt-4 lg:pt-0">
                         <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter mb-1">
                           Mediana
                         </p>
-                        <p className="text-xl font-black text-slate-900">
+                        <p className="text-lg lg:text-xl font-black text-slate-900">
                           R${" "}
                           {filteredStats.median.toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
