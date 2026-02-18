@@ -4,26 +4,43 @@ import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
 
-// Carregar variáveis de ambiente da pasta raiz
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env") });
+// Carregar variáveis de ambiente (o .env é opcional em produção)
+dotenv.config();
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
-const port = Number(process.env.PORT) || 3001;
+const port = Number(process.env.SERVER_PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
 
-const pool = new Pool({
-  host: process.env.host,
-  port: Number(process.env.port) || 5432,
-  user: process.env.user?.replace(/"/g, ""),
-  password: process.env.password?.replace(/"/g, ""),
-  database: process.env.database?.replace(/"/g, "") || "db_leiloes",
+// Configuração do Banco de Dados com Fallback para maiúsculas (padrão Docker/Easypanel)
+const dbConfig = {
+  host: process.env.host || process.env.DB_HOST || process.env.POSTGRES_HOST,
+  port: Number(process.env.port || process.env.DB_PORT || 5432),
+  user: (process.env.user || process.env.DB_USER || "postgres").replace(
+    /"/g,
+    "",
+  ),
+  password: (process.env.password || process.env.DB_PASSWORD || "").replace(
+    /"/g,
+    "",
+  ),
+  database: (
+    process.env.database ||
+    process.env.DB_NAME ||
+    "db_leiloes"
+  ).replace(/"/g, ""),
   ssl:
     process.env.sslmode === "require" ? { rejectUnauthorized: false } : false,
-});
+};
 
-console.log(`📂 Conectando ao Postgres: ${process.env.host}`);
+const pool = new Pool(dbConfig);
+
+console.log(
+  `📂 Tentando conectar ao Postgres em: ${dbConfig.host}:${dbConfig.port}`,
+);
+console.log(`👤 Usuário DB: ${dbConfig.user}`);
 
 interface FilterItem {
   label: string;
