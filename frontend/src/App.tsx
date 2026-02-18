@@ -469,6 +469,7 @@ export default function App() {
   useEffect(() => {
     setFCity("");
     setFNeighborhood("");
+    setFModalidade("");
   }, [fUf]);
 
   useEffect(() => {
