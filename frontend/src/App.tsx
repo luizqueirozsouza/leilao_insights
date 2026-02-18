@@ -452,7 +452,7 @@ export default function App() {
     const fetchBaseFilters = async () => {
       try {
         const res = await axios.get(
-          `${API_BASE}/filters?uf=${fUf}&city=${fCity}&modalidade=${fModalidade}`,
+          `${API_BASE}/filters?uf=${fUf}&city=${fCity}&neighborhood=${fNeighborhood}&modalidade=${fModalidade}`,
         );
         if (res.data) {
           setOptUfs(res.data.ufs || []);
@@ -463,7 +463,7 @@ export default function App() {
       }
     };
     fetchBaseFilters();
-  }, [fUf, fCity, fModalidade]);
+  }, [fUf, fCity, fNeighborhood, fModalidade]);
 
   useEffect(() => {
     const fetchCities = async () => {
