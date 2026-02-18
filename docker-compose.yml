@@ -8,14 +8,23 @@ services:
     env_file:
       - .env
     restart: always
+    networks:
+      - easypanel
 
   frontend:
     build:
       context: ./frontend
       args:
-        # No Easypanel, você pode configurar este argumento no build
         - VITE_API_BASE=${VITE_API_BASE:-http://localhost:3001/api}
     container_name: leilao_frontend
     ports:
       - "80:80"
     restart: always
+    depends_on:
+      - backend
+    networks:
+      - easypanel
+
+networks:
+  easypanel:
+    external: true
