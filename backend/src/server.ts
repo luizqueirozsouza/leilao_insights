@@ -149,43 +149,104 @@ setInterval(() => {
 
 app.get("/api/stats", (req, res) => res.json(cache.stats));
 
-app.get("/api/filters", (req, res) => {
-  const { uf, city } = req.query;
-  const ufStr = uf ? String(uf) : "";
-  const cityStr = city ? String(city) : "";
+app.get("/api/filters", async (req, res) => {
+  const { uf, city, modalidade } = req.query;
+  try {
+    // 1. UFs (Filtrado por Modalidade e Cidade, mas ignorando o próprio filtro de UF)
+    let ufWhere = "WHERE 1=1";
+    const ufParams: any[] = [];
+    let ufIdx = 1;
+    if (city) {
+      const cities = String(city).split(",");
+      ufWhere += ` AND payload_json->>'Cidade' IN (${cities.map(() => `$${ufIdx++}`).join(",")})`;
+      ufParams.push(...cities);
+    }
+    if (modalidade) {
+      ufWhere += ` AND payload_json->>'Modalidade de venda' = $${ufIdx++}`;
+      ufParams.push(modalidade);
+    }
+    const ufQuery = `SELECT uf as value, count(*) as count FROM current_imoveis ${ufWhere} GROUP BY 1 ORDER BY 1`;
 
-  res.json({
-    ufs: cache.filters.ufs,
-    modalidades: cache.filters.modalidades,
-    cities: ufStr ? cache.filters.cidades[ufStr] || [] : [],
-    neighborhoods: (() => {
-      if (!ufStr || !cityStr) return [];
-      const cities = cityStr.split(",");
-      if (cities.length === 1) {
-        return cache.filters.bairros[`${ufStr}|${cityStr}`] || [];
+    // 2. Modalidades (Filtrado por UF e Cidade)
+    let modWhere = "WHERE 1=1";
+    const modParams: any[] = [];
+    let modIdx = 1;
+    if (uf) {
+      modWhere += ` AND uf = $${modIdx++}`;
+      modParams.push(uf);
+    }
+    if (city) {
+      const cities = String(city).split(",");
+      modWhere += ` AND payload_json->>'Cidade' IN (${cities.map(() => `$${modIdx++}`).join(",")})`;
+      modParams.push(...cities);
+    }
+    const modQuery = `SELECT payload_json->>'Modalidade de venda' as value, count(*) as count FROM current_imoveis ${modWhere} GROUP BY 1 ORDER BY 1`;
+
+    // 3. Cidades (Sempre requer UF)
+    let cities: any[] = [];
+    if (uf) {
+      let cityWhere = `WHERE uf = $1`;
+      const cityParams = [uf];
+      let cityIdx = 2;
+      if (modalidade) {
+        cityWhere += ` AND payload_json->>'Modalidade de venda' = $${cityIdx++}`;
+        cityParams.push(String(modalidade));
       }
+      const cityQuery = `SELECT payload_json->>'Cidade' as value, count(*) as count FROM current_imoveis ${cityWhere} GROUP BY 1 ORDER BY 1`;
+      const cityRes = await pool.query(cityQuery, cityParams);
+      cities = cityRes.rows.map((r) => ({
+        label: r.value,
+        value: r.value,
+        count: parseInt(r.count),
+      }));
+    }
 
-      // Combinar bairros de múltiplas cidades
-      const combined = new Map<string, FilterItem>();
-      cities.forEach((c) => {
-        const bairros = cache.filters.bairros[`${ufStr}|${c}`] || [];
-        bairros.forEach((b) => {
-          if (combined.has(b.value)) {
-            const existing = combined.get(b.value)!;
-            combined.set(b.value, {
-              ...existing,
-              count: existing.count + b.count,
-            });
-          } else {
-            combined.set(b.value, b);
-          }
-        });
-      });
-      return Array.from(combined.values()).sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
-    })(),
-  });
+    // 4. Bairros (Requer UF e Cidade)
+    let neighborhoods: any[] = [];
+    if (uf && city) {
+      let bWhere = `WHERE uf = $1`;
+      const bParams = [uf];
+      let bIdx = 2;
+      const cities = String(city).split(",");
+      bWhere += ` AND payload_json->>'Cidade' IN (${cities.map(() => `$${bIdx++}`).join(",")})`;
+      bParams.push(...cities);
+
+      if (modalidade) {
+        bWhere += ` AND payload_json->>'Modalidade de venda' = $${bIdx++}`;
+        bParams.push(String(modalidade));
+      }
+      const bQuery = `SELECT payload_json->>'Bairro' as value, count(*) as count FROM current_imoveis ${bWhere} GROUP BY 1 ORDER BY 1`;
+      const bRes = await pool.query(bQuery, bParams);
+      neighborhoods = bRes.rows.map((r) => ({
+        label: r.value,
+        value: r.value,
+        count: parseInt(r.count),
+      }));
+    }
+
+    const [uRes, mRes] = await Promise.all([
+      pool.query(ufQuery, ufParams),
+      pool.query(modQuery, modParams),
+    ]);
+
+    res.json({
+      ufs: uRes.rows.map((r) => ({
+        label: r.value,
+        value: r.value,
+        count: parseInt(r.count),
+      })),
+      modalidades: mRes.rows.map((r) => ({
+        label: r.value,
+        value: r.value,
+        count: parseInt(r.count),
+      })),
+      cities,
+      neighborhoods,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao carregar filtros" });
+  }
 });
 
 app.get("/api/stats/filtered", async (req, res) => {

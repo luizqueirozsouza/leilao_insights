@@ -449,19 +449,21 @@ export default function App() {
   const [loadingFilters, setLoadingFilters] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
+    const fetchBaseFilters = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/filters`);
+        const res = await axios.get(
+          `${API_BASE}/filters?uf=${fUf}&city=${fCity}&modalidade=${fModalidade}`,
+        );
         if (res.data) {
           setOptUfs(res.data.ufs || []);
           setOptModalidades(res.data.modalidades || []);
         }
       } catch (e) {
-        console.error("Erro inicial:", e);
+        console.error("Erro ao atualizar filtros base:", e);
       }
     };
-    init();
-  }, []);
+    fetchBaseFilters();
+  }, [fUf, fCity, fModalidade]);
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -473,7 +475,9 @@ export default function App() {
       }
       setLoadingFilters(true);
       try {
-        const res = await axios.get(`${API_BASE}/filters?uf=${fUf}`);
+        const res = await axios.get(
+          `${API_BASE}/filters?uf=${fUf}&modalidade=${fModalidade}`,
+        );
         setOptCities(res.data.cities || []);
       } catch (e) {
       } finally {
@@ -481,7 +485,7 @@ export default function App() {
       }
     };
     fetchCities();
-  }, [fUf]);
+  }, [fUf, fModalidade]);
 
   useEffect(() => {
     const fetchNeighborhoods = async () => {
@@ -493,7 +497,7 @@ export default function App() {
       setLoadingFilters(true);
       try {
         const res = await axios.get(
-          `${API_BASE}/filters?uf=${fUf}&city=${fCity}`,
+          `${API_BASE}/filters?uf=${fUf}&city=${fCity}&modalidade=${fModalidade}`,
         );
         setOptNeighborhoods(res.data.neighborhoods || []);
       } catch (e) {
@@ -502,7 +506,7 @@ export default function App() {
       }
     };
     fetchNeighborhoods();
-  }, [fCity]);
+  }, [fCity, fModalidade]);
 
   useEffect(() => {
     const fetchData = async () => {
