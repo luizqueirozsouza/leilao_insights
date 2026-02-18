@@ -3,6 +3,14 @@ services:
     build: 
       context: ./backend
     restart: always
+    environment:
+      - host=${host}
+      - port=${port}
+      - database=${database}
+      - user=${user}
+      - password=${password}
+      - sslmode=${sslmode}
+      - SERVER_PORT=${SERVER_PORT}
     networks:
       - easypanel
 
