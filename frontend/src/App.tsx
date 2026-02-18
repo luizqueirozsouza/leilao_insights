@@ -465,10 +465,18 @@ export default function App() {
     fetchBaseFilters();
   }, [fUf, fCity, fNeighborhood, fModalidade]);
 
+  // Reset hierárquico: Limpa filhos apenas se o pai geográfico mudar
+  useEffect(() => {
+    setFCity("");
+    setFNeighborhood("");
+  }, [fUf]);
+
+  useEffect(() => {
+    setFNeighborhood("");
+  }, [fCity]);
+
   useEffect(() => {
     const fetchCities = async () => {
-      setFCity("");
-      setFNeighborhood("");
       if (!fUf) {
         setOptCities([]);
         return;
@@ -489,7 +497,6 @@ export default function App() {
 
   useEffect(() => {
     const fetchNeighborhoods = async () => {
-      setFNeighborhood("");
       if (!fCity) {
         setOptNeighborhoods([]);
         return;
