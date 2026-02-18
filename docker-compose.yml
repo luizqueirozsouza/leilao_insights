@@ -3,8 +3,6 @@ services:
     build: 
       context: ./backend
     container_name: leilao_backend
-    ports:
-      - "3001:3001"
     restart: always
     networks:
       - easypanel
@@ -15,8 +13,6 @@ services:
       args:
         - VITE_API_BASE=${VITE_API_BASE:-http://localhost:3001/api}
     container_name: leilao_frontend
-    ports:
-      - "80:80"
     restart: always
     depends_on:
       - backend
