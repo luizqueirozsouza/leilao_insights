@@ -558,7 +558,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                CAIXA <span className="text-blue-600">INSIGHTS</span>
+                LEILÃO <span className="text-blue-600">INSIGHTS</span>
               </h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 Painel de Inteligência Imobiliária
