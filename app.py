@@ -1,23 +1,39 @@
 import json
+import os
 from datetime import date
 
-import duckdb
 import pandas as pd
+import psycopg2
 import streamlit as st
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
 
 # =============================
 # CONFIG
 # =============================
 st.set_page_config(page_title="Imóveis Caixa - Viewer", layout="wide")
-st.title("🏠 Imóveis Caixa — Viewer (DuckDB / current_imoveis)")
+st.title("🏠 Imóveis Caixa — Viewer (PostgreSQL / current_imoveis)")
 
-DB_PATH = "data/caixa.duckdb"
+
+def get_db_connection():
+    return psycopg2.connect(
+        host=os.getenv("host"),
+        port=os.getenv("port"),
+        user=os.getenv("user", "").replace('"', ""),
+        password=os.getenv("password", "").replace('"', ""),
+        database=os.getenv("database", "db_leiloes").replace('"', ""),
+        sslmode=os.getenv("sslmode", "disable"),
+    )
+
 
 FIELDS_NUMERIC = {
     "Preço": "Preço_num",
     "Valor de avaliação": "Avaliação_num",
     "Desconto": "Desconto_num",  # mantemos parsing (útil na tabela), mas sem filtro
 }
+
 
 # =============================
 # HELPERS
@@ -89,24 +105,28 @@ def apply_filters(
 
 
 # =============================
-# LOAD FROM DUCKDB
+# LOAD FROM POSTGRES
 # =============================
 @st.cache_data(show_spinner=False)
-def load_current_from_duckdb(db_path: str) -> pd.DataFrame:
-    con = duckdb.connect(db_path, read_only=True)
+def load_current_from_postgres() -> pd.DataFrame:
+    conn = get_db_connection()
+    try:
+        query = """
+            SELECT
+                uf,
+                numero_imovel,
+                payload_json,
+                fp,
+                last_seen,
+                source_file
+            FROM current_imoveis
+        """
+        base = pd.read_sql(query, conn)
+    finally:
+        conn.close()
 
-    base = con.execute("""
-        SELECT
-            uf,
-            numero_imovel,
-            payload_json,
-            fp,
-            last_seen,
-            source_file
-        FROM current_imoveis
-    """).fetchdf()
-
-    con.close()
+    if base.empty:
+        return pd.DataFrame()
 
     payload_dicts = base["payload_json"].apply(safe_json_load).tolist()
     payload_df = pd.json_normalize(payload_dicts)
@@ -135,21 +155,25 @@ def load_current_from_duckdb(db_path: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def load_changes_by_day(db_path: str, dt: str) -> pd.DataFrame:
-    con = duckdb.connect(db_path, read_only=True)
-    chg = con.execute("""
-        SELECT
-            dt,
-            uf,
-            tipo_evento,
-            numero_imovel,
-            changed_fields,
-            before_json,
-            after_json
-        FROM changes
-        WHERE dt = ?
-    """, [dt]).fetchdf()
-    con.close()
+def load_changes_by_day(dt: str) -> pd.DataFrame:
+    conn = get_db_connection()
+    try:
+        query = """
+            SELECT
+                dt,
+                uf,
+                tipo_evento,
+                numero_imovel,
+                changed_fields,
+                before_json,
+                after_json
+            FROM changes
+            WHERE dt = %s
+        """
+        # Usamos read_sql com params
+        chg = pd.read_sql(query, conn, params=(dt,))
+    finally:
+        conn.close()
     return chg
 
 
@@ -187,16 +211,18 @@ def extract_payload_cols(chg_df: pd.DataFrame, which: str) -> pd.DataFrame:
 # UI: LOAD
 # =============================
 try:
-    df_current = load_current_from_duckdb(DB_PATH)
+    df_current = load_current_from_postgres()
 except Exception as e:
-    st.error(f"Erro ao abrir DuckDB ({DB_PATH}): {e}")
+    st.error(f"Erro ao conectar ao PostgreSQL: {e}")
     st.stop()
 
 if df_current.empty:
-    st.warning("Tabela current_imoveis está vazia. Rode o ingest primeiro.")
+    st.warning(
+        "Tabela current_imoveis está vazia no PostgreSQL. Rode o ingest primeiro."
+    )
     st.stop()
 
-st.success(f"Carregado do DuckDB: {len(df_current):,} imóveis".replace(",", "."))
+st.success(f"Carregado do PostgreSQL: {len(df_current):,} imóveis".replace(",", "."))
 
 hoje_str = date.today().isoformat()
 
@@ -220,21 +246,33 @@ status_sel = st.sidebar.multiselect(
 
 # Modalidade (MULTI)
 if "Modalidade de venda" in df_current.columns:
-    modalidades = sorted([x for x in df_current["Modalidade de venda"].dropna().unique().tolist() if str(x).strip()])
-    mod_sel = st.sidebar.multiselect("Modalidade de venda", modalidades, default=modalidades)
+    modalidades = sorted(
+        [
+            x
+            for x in df_current["Modalidade de venda"].dropna().unique().tolist()
+            if str(x).strip()
+        ]
+    )
+    mod_sel = st.sidebar.multiselect(
+        "Modalidade de venda", modalidades, default=modalidades
+    )
 else:
     mod_sel = []
 
 # UF (MULTI)
 if "UF" in df_current.columns:
-    ufs = sorted([x for x in df_current["UF"].dropna().unique().tolist() if str(x).strip()])
+    ufs = sorted(
+        [x for x in df_current["UF"].dropna().unique().tolist() if str(x).strip()]
+    )
     uf_sel = st.sidebar.multiselect("UF", ufs, default=ufs)
 else:
     uf_sel = []
 
 # Cidade (MULTI) — base para bairro
 if "Cidade" in df_current.columns:
-    cidades_all = sorted([x for x in df_current["Cidade"].dropna().unique().tolist() if str(x).strip()])
+    cidades_all = sorted(
+        [x for x in df_current["Cidade"].dropna().unique().tolist() if str(x).strip()]
+    )
     cidade_sel = st.sidebar.multiselect("Cidade", cidades_all, default=[])
 else:
     cidade_sel = []
@@ -245,7 +283,9 @@ if "Bairro" in df_current.columns:
         bairros_pool = df_current[df_current["Cidade"].isin(cidade_sel)]["Bairro"]
     else:
         bairros_pool = df_current["Bairro"]
-    bairros_all = sorted([x for x in bairros_pool.dropna().unique().tolist() if str(x).strip()])
+    bairros_all = sorted(
+        [x for x in bairros_pool.dropna().unique().tolist() if str(x).strip()]
+    )
     bairro_sel = st.sidebar.multiselect("Bairro", bairros_all, default=[])
 else:
     bairro_sel = []
@@ -253,7 +293,10 @@ else:
 # Preço (slider)
 preco_min = preco_max = None
 if "Preço_num" in df_current.columns and df_current["Preço_num"].notna().any():
-    pmin, pmax = float(df_current["Preço_num"].min()), float(df_current["Preço_num"].max())
+    pmin, pmax = (
+        float(df_current["Preço_num"].min()),
+        float(df_current["Preço_num"].max()),
+    )
     preco_min, preco_max = st.sidebar.slider("Preço (R$)", 0.0, pmax, (pmin, pmax))
 
 # =============================
@@ -261,9 +304,16 @@ if "Preço_num" in df_current.columns and df_current["Preço_num"].notna().any()
 # =============================
 # Colunas base de exibição
 cols_base = [
-    "Nº do imóvel", "UF", "Cidade", "Bairro", "Endereço",
-    "Preço", "Valor de avaliação", "Desconto",
-    "Modalidade de venda", "Link de acesso",
+    "Nº do imóvel",
+    "UF",
+    "Cidade",
+    "Bairro",
+    "Endereço",
+    "Preço",
+    "Valor de avaliação",
+    "Desconto",
+    "Modalidade de venda",
+    "Link de acesso",
 ]
 cols_current_extra = ["last_seen", "source_file"]
 cols_changes_extra = ["dt", "tipo_evento", "changed_fields"]
@@ -280,14 +330,23 @@ if not status_sel:
 
 # 1) TODOS (current)
 if "Todos (current)" in status_sel:
-    cur_f = apply_filters(df_current, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max)
+    cur_f = apply_filters(
+        df_current, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max
+    )
     views.append(("📋 Todos (current_imoveis) — filtros aplicados", cur_f, "current"))
 
 # Para os outros status, precisa carregar changes
-need_changes = any(x in status_sel for x in ["Adicionados hoje (ENTER)", "Removidos hoje (EXIT)", "Alterados hoje (UPDATE)"])
+need_changes = any(
+    x in status_sel
+    for x in [
+        "Adicionados hoje (ENTER)",
+        "Removidos hoje (EXIT)",
+        "Alterados hoje (UPDATE)",
+    ]
+)
 chg = pd.DataFrame()
 if need_changes:
-    chg = load_changes_by_day(DB_PATH, hoje_str)
+    chg = load_changes_by_day(hoje_str)
 
 # 2) ENTER
 if "Adicionados hoje (ENTER)" in status_sel:
@@ -295,8 +354,18 @@ if "Adicionados hoje (ENTER)" in status_sel:
         ent_f = pd.DataFrame()
     else:
         ent = chg[chg["tipo_evento"] == "ENTER"].copy()
-        ent_df = extract_payload_cols(ent, which="after") if not ent.empty else pd.DataFrame()
-        ent_f = apply_filters(ent_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max) if not ent_df.empty else pd.DataFrame()
+        ent_df = (
+            extract_payload_cols(ent, which="after")
+            if not ent.empty
+            else pd.DataFrame()
+        )
+        ent_f = (
+            apply_filters(
+                ent_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max
+            )
+            if not ent_df.empty
+            else pd.DataFrame()
+        )
     views.append(("🟢 Adicionados hoje (ENTER) — filtros aplicados", ent_f, "changes"))
 
 # 3) EXIT
@@ -305,8 +374,16 @@ if "Removidos hoje (EXIT)" in status_sel:
         ex_f = pd.DataFrame()
     else:
         ex = chg[chg["tipo_evento"] == "EXIT"].copy()
-        ex_df = extract_payload_cols(ex, which="before") if not ex.empty else pd.DataFrame()
-        ex_f = apply_filters(ex_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max) if not ex_df.empty else pd.DataFrame()
+        ex_df = (
+            extract_payload_cols(ex, which="before") if not ex.empty else pd.DataFrame()
+        )
+        ex_f = (
+            apply_filters(
+                ex_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max
+            )
+            if not ex_df.empty
+            else pd.DataFrame()
+        )
     views.append(("🔴 Removidos hoje (EXIT) — filtros aplicados", ex_f, "changes"))
 
 # 4) UPDATE
@@ -315,8 +392,16 @@ if "Alterados hoje (UPDATE)" in status_sel:
         up_f = pd.DataFrame()
     else:
         up = chg[chg["tipo_evento"] == "UPDATE"].copy()
-        up_df = extract_payload_cols(up, which="after") if not up.empty else pd.DataFrame()
-        up_f = apply_filters(up_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max) if not up_df.empty else pd.DataFrame()
+        up_df = (
+            extract_payload_cols(up, which="after") if not up.empty else pd.DataFrame()
+        )
+        up_f = (
+            apply_filters(
+                up_df, mod_sel, uf_sel, cidade_sel, bairro_sel, preco_min, preco_max
+            )
+            if not up_df.empty
+            else pd.DataFrame()
+        )
     views.append(("🛠️ Alterados hoje (UPDATE) — filtros aplicados", up_f, "changes"))
 
 # =============================
@@ -340,6 +425,6 @@ for title, dfx, kind in views:
 
     st.dataframe(
         dfx[cols_show],
-        width='stretch',
+        width="stretch",
         column_config=column_config,
     )

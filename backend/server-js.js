@@ -1,18 +1,28 @@
 const express = require("express");
-const duckdb = require("duckdb");
+const { Pool } = require("pg");
 const cors = require("cors");
 const path = require("path");
+const dotenv = require("dotenv");
+
+// Carregar variáveis de ambiente
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
-const port = 3001;
+const port = process.env.SERVER_PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 
-const dbPath = path.resolve(__dirname, "../data/caixa.duckdb");
-console.log("📂 BD:", dbPath);
-
-const db = new duckdb.Database(dbPath);
+// Configuração do Banco de Dados
+const pool = new Pool({
+  host: process.env.host,
+  port: process.env.port,
+  user: (process.env.user || "").replace(/"/g, ""),
+  password: (process.env.password || "").replace(/"/g, ""),
+  database: (process.env.database || "db_leiloes").replace(/"/g, ""),
+  ssl:
+    process.env.sslmode === "require" ? { rejectUnauthorized: false } : false,
+});
 
 let cache = {
   stats: { total: 0, ufs: 0, cities: 0 },
@@ -20,13 +30,14 @@ let cache = {
   ready: false,
 };
 
-function loadData() {
-  console.log("⏳ Lendo base de dados...");
-  db.all("SELECT uf, payload_json FROM current_imoveis", (err, rows) => {
-    if (err) {
-      console.error("❌ Erro no banco:", err);
-      return;
-    }
+async function loadData() {
+  console.log("⏳ Lendo base de dados PostgreSQL...");
+  try {
+    const res = await pool.query(
+      "SELECT uf, payload_json FROM current_imoveis",
+    );
+    const rows = res.rows;
+
     const ufs = new Set();
     const cities = new Set();
     const mods = new Set();
@@ -36,17 +47,20 @@ function loadData() {
     rows.forEach((r) => {
       ufs.add(r.uf);
       if (!cByUf[r.uf]) cByUf[r.uf] = new Set();
-      try {
-        const p = JSON.parse(r.payload_json);
-        if (p.Cidade) {
-          cities.add(p.Cidade);
-          cByUf[r.uf].add(p.Cidade);
-          const k = `${r.uf}|${p.Cidade}`;
-          if (!bByC[k]) bByC[k] = new Set();
-          if (p.Bairro) bByC[k].add(p.Bairro);
-        }
-        if (p["Modalidade de venda"]) mods.add(p["Modalidade de venda"]);
-      } catch (e) {}
+
+      const p =
+        typeof r.payload_json === "string"
+          ? JSON.parse(r.payload_json)
+          : r.payload_json;
+
+      if (p.Cidade) {
+        cities.add(p.Cidade);
+        cByUf[r.uf].add(p.Cidade);
+        const k = `${r.uf}|${p.Cidade}`;
+        if (!bByC[k]) bByC[k] = new Set();
+        if (p.Bairro) bByC[k].add(p.Bairro);
+      }
+      if (p["Modalidade de venda"]) mods.add(p["Modalidade de venda"]);
     });
 
     cache.stats = { total: rows.length, ufs: ufs.size, cities: cities.size };
@@ -58,7 +72,9 @@ function loadData() {
 
     cache.ready = true;
     console.log("✅ Pronto:", rows.length, "imóveis");
-  });
+  } catch (err) {
+    console.error("❌ Erro no banco:", err);
+  }
 }
 
 loadData();
@@ -75,20 +91,25 @@ app.get("/api/filters", (req, res) => {
   });
 });
 
-app.get("/api/properties", (req, res) => {
+app.get("/api/properties", async (req, res) => {
   const { uf, city, neighborhood, modalidade, limit = 20 } = req.query;
-  let q = "SELECT uf, payload_json FROM current_imoveis WHERE 1=1";
-  const p = [];
-  if (uf) {
-    q += " AND uf = ?";
-    p.push(uf);
-  }
-  db.all(q, p, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    let q = "SELECT uf, payload_json FROM current_imoveis WHERE 1=1";
+    const values = [];
+    if (uf) {
+      q += " AND uf = $1";
+      values.push(uf);
+    }
+
+    const { rows } = await pool.query(q, values);
     let resRows = rows.map((r) => ({
       uf: r.uf,
-      payload: JSON.parse(r.payload_json),
+      payload:
+        typeof r.payload_json === "string"
+          ? JSON.parse(r.payload_json)
+          : r.payload_json,
     }));
+
     if (city) resRows = resRows.filter((r) => r.payload.Cidade === city);
     if (neighborhood)
       resRows = resRows.filter((r) => r.payload.Bairro === neighborhood);
@@ -97,7 +118,9 @@ app.get("/api/properties", (req, res) => {
         (r) => r.payload["Modalidade de venda"] === modalidade,
       );
     res.json(resRows.slice(0, Number(limit)));
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(port, () => console.log(`🚀 http://localhost:${port}`));
