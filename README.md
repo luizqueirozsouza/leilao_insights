@@ -1,43 +1,82 @@
-# 🏠 Leilão Insights
+# Leilao Insights
 
-O **Leilão Insights** é uma plataforma de inteligência imobiliária projetada para investidores que desejam analisar ativos da Caixa Econômica Federal com precisão cirúrgica. O sistema evoluiu de scripts básicos para uma aplicação fullstack robusta, oferecendo indicadores financeiros avançados e uma interface premium.
+O `app_leilao` centraliza a captura diaria dos imoveis da Caixa, atualiza o PostgreSQL e disponibiliza esses dados para consulta no frontend e no dashboard.
 
-## 🌟 Principais Funcionalidades
+Hoje, o fluxo oficial do projeto usa:
+- `extrai.py` para baixar os CSVs da Caixa
+- `ingest.py` para comparar com o estado atual e atualizar o PostgreSQL
+- backend Node.js + Express + TypeScript para servir a API
+- frontend React + Vite para a busca
+- dashboard Streamlit para analise operacional
 
-- **Dashboard de Indicadores**: Visualização em tempo real do total de imóveis, cidades cobertas, **Média** e **Mediana** de avaliação baseadas nos filtros aplicados.
-- **Filtros Inteligentes**: Cascata geográfica (Estado -> Cidade -> Bairro) e filtragem por Modalidade de Venda com contagem dinâmica de itens.
-- **Ordenação Dinâmica**: Organize imóveis por maior ou menor preço instantaneamente.
-- **Cards de Alta Densidade**: Informações críticas extraídas via Regex (Quartos, Vagas, Área, Matrícula, Inscrição Imobiliária e Aceite de FGTS).
-- **Design Premium**: Interface Light moderna focada em legibilidade e experiência do usuário profissional.
+## Arquitetura
 
-## 🏗️ Arquitetura do Sistema
+1. A Caixa publica os CSVs por UF.
+2. O projeto baixa os arquivos para `data/caixa/dt=AAAA-MM-DD`.
+3. O `ingest.py` valida os arquivos do dia, compara com `current_imoveis`, grava eventos em `changes` e reconstrui `current_imoveis`.
+4. O backend le o PostgreSQL e entrega os dados para o frontend.
 
-- **Pipeline de Dados (Python)**: `extrai.py` e `ingest.py` para scraping e ingestão no banco de dados.
-- **Backend (Node.js + Express + TypeScript)**: API de alta performance conectada ao PostgreSQL.
-- **Frontend (React + Vite + Tailwind CSS)**: Aplicação SPA moderna com animações via Framer Motion.
-- **Infraestrutura**: Dockerizada e pronta para deploy via Docker Compose ou Easypanel.
+## Banco de dados
 
-## 🚀 Como Executar Localmente
+O banco principal do projeto e o PostgreSQL.
 
-### Pré-requisitos
+Tabelas principais:
+- `snapshot_imoveis`: snapshot bruto da carga do dia
+- `current_imoveis`: estado atual da base
+- `changes`: eventos `ENTER`, `EXIT` e `UPDATE`
+
+Observacao:
+- `data/caixa.duckdb` e scripts antigos com DuckDB nao fazem parte do fluxo principal atual.
+
+## Fluxo de atualizacao
+
+O fluxo atual funciona assim:
+
+1. `extrai.py` baixa os CSVs mais recentes da Caixa.
+2. `ingest.py` exige que todas as UFs tenham sido baixadas.
+3. O script compara a nova carga com `current_imoveis`.
+4. O script atualiza `changes`.
+5. O script reconstrui `current_imoveis` para refletir exatamente a ultima carga valida.
+6. Depois da carga, os CSVs antigos podem ser removidos.
+
+## Requisitos locais
 
 - Node.js 20+
-- Python 3.12+ (uv recomendado)
-- PostgreSQL instalado e rodando
+- Python 3.13+
+- `uv` instalado
+- acesso ao PostgreSQL configurado no `.env`
 
-### 1. Configuração do Ambiente
+## Variaveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto com suas credenciais:
+Crie ou ajuste o arquivo `.env` na raiz:
 
 ```env
-host=seu_host_postgres
+host=SEU_HOST_POSTGRES
 port=5432
-user="seu_usuario"
-password="sua_password"
 database="db_leiloes"
+user="postgres"
+password="SUA_SENHA"
+sslmode="disable"
+SERVER_PORT=3001
 ```
 
-### 2. Backend
+Para o frontend local, use `frontend/.env.local`:
+
+```env
+VITE_API_BASE=http://localhost:3001/api
+```
+
+## Como executar localmente
+
+### 1. Instalar dependencias Python
+
+Na raiz do projeto:
+
+```bash
+uv sync
+```
+
+### 2. Subir o backend
 
 ```bash
 cd backend
@@ -45,7 +84,15 @@ npm install
 npm run dev
 ```
 
-### 3. Frontend
+Teste a API:
+
+```text
+http://localhost:3001/api/stats
+```
+
+### 3. Subir o frontend
+
+Em outro terminal:
 
 ```bash
 cd frontend
@@ -53,31 +100,102 @@ npm install
 npm run dev
 ```
 
-## 🐳 Docker & Deploy
+Frontend local:
 
-Para rodar o projeto completo via Docker:
-
-```bash
-docker-compose up -d --build
+```text
+http://localhost:5173
 ```
 
-### Deploy na VPS (Easypanel)
+### 4. Subir o dashboard Streamlit
 
-Este repositório está otimizado para o **Easypanel**:
+Opcional:
 
-1.  Conecte o repositório `leilao_insights`.
-2.  O Dockerfile do backend está em `./backend`.
-3.  O Dockerfile do frontend está em `./frontend` (serve via Nginx).
-4.  Configure `VITE_API_BASE` no build do frontend para apontar para a URL da sua API.
+```bash
+uv run streamlit run app.py
+```
 
-## ⚙️ Tecnologias
+Dashboard local:
 
-- **Linguagens**: TypeScript, JavaScript, Python.
-- **Backend**: Express, node-postgres (pg).
-- **Frontend**: React, Lucide-React, Framer Motion, Axios, React-Select.
-- **Estilização**: Tailwind CSS.
-- **Banco de Dados**: PostgreSQL e DuckDB (cache local).
+```text
+http://localhost:8501
+```
 
----
+## Como atualizar o banco localmente
 
-Desenvolvido para análise de alta performance. 🚀🏠
+Na raiz do projeto:
+
+```bash
+uv run python extrai.py
+uv run python ingest.py
+```
+
+Resultado esperado:
+- os CSVs do dia sao baixados para `data/caixa/dt=AAAA-MM-DD`
+- o PostgreSQL e atualizado
+- a API passa a refletir a nova base
+
+## Validacao rapida depois da carga
+
+1. Teste a API:
+
+```text
+http://localhost:3001/api/stats
+```
+
+2. Verifique se o frontend carrega filtros e resultados.
+
+3. Se quiser verificar direto no banco:
+
+```sql
+select count(*) from current_imoveis;
+```
+
+## Automacao diaria
+
+O repositorio possui um fluxo inicial do Kestra em:
+
+[`kestra/caixa_daily_sync.yaml`](./kestra/caixa_daily_sync.yaml)
+
+Esse fluxo:
+- baixa os CSVs do dia
+- executa a ingestao
+- valida o volume final em `current_imoveis`
+- remove diretorios antigos de CSV
+
+Antes de usar em producao, ajuste:
+- caminho do repositorio na VPS
+- horario do agendamento
+- politica de limpeza
+- notificacoes
+
+## Docker
+
+Para subir a stack com Docker Compose:
+
+```bash
+docker compose up -d --build
+```
+
+Servicos:
+- backend
+- frontend
+- dashboard
+
+## Observacoes operacionais
+
+- O backend em desenvolvimento precisa ler o `.env` da raiz do projeto.
+- Se a API responder erro e o banco estiver correto, valide primeiro `http://localhost:3001/api/stats`.
+- O frontend depende de `VITE_API_BASE` para apontar para a API correta.
+- Os CSVs antigos nao precisam ficar acumulados depois da carga bem-sucedida.
+
+## Tecnologias
+
+- Python
+- PostgreSQL
+- Node.js
+- Express
+- TypeScript
+- React
+- Vite
+- Streamlit
+- Kestra

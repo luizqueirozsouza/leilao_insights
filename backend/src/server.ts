@@ -5,8 +5,10 @@ import path from "path";
 import dotenv from "dotenv";
 
 // Carregar variáveis de ambiente (o .env é opcional em produção)
-dotenv.config();
-dotenv.config({ path: path.join(__dirname, "..", ".env") });
+dotenv.config({
+  path: path.join(__dirname, "..", "..", ".env"),
+  override: true,
+});
 
 const app = express();
 const port = Number(process.env.SERVER_PORT) || 3001;
@@ -142,12 +144,24 @@ loadData();
 
 // Tentar recarregar a cada 5 minutos caso não haja dados
 setInterval(() => {
-  if (!cache.ready || cache.stats.total === 0) {
-    loadData();
-  }
+  loadData();
 }, 300000);
 
-app.get("/api/stats", (req, res) => res.json(cache.stats));
+app.get("/api/stats", async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(DISTINCT uf)::int AS ufs,
+        COUNT(DISTINCT payload_json->>'Cidade')::int AS cities
+      FROM current_imoveis
+    `);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao carregar estatisticas" });
+  }
+});
 
 app.get("/api/filters", async (req, res) => {
   const { uf, city, neighborhood, modalidade } = req.query;

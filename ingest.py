@@ -5,7 +5,7 @@ import io
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -20,6 +20,11 @@ load_dotenv()
 # CONFIG
 # =============================
 BASE_DIR = Path("data") / "caixa"
+EXPECTED_UFS = {
+    "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
+    "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+}
 
 KEY = "Nº do imóvel"
 
@@ -256,6 +261,26 @@ def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def validate_expected_csvs(csvs: list[Path]) -> None:
+    found_ufs = {uf_from_path(path) for path in csvs if uf_from_path(path) != "GERAL"}
+    missing = sorted(EXPECTED_UFS - found_ufs)
+    if missing:
+        raise ValueError(
+            "Ingest abortado: faltam CSVs de UF para atualizar com seguranca: "
+            + ", ".join(missing)
+        )
+
+
+def load_state_df(cur, query: str, params: tuple = ()) -> pd.DataFrame:
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    return (
+        pd.DataFrame(rows, columns=["uf", "numero_imovel", "payload_json", "fp"])
+        if rows
+        else pd.DataFrame(columns=["uf", "numero_imovel", "payload_json", "fp"])
+    )
+
+
 # =============================
 # MAIN
 # =============================
@@ -263,6 +288,7 @@ def ingest_day(dt: str) -> dict:
     csvs = list_today_csvs(dt)
     if not csvs:
         raise FileNotFoundError(f"Nenhum CSV encontrado em {BASE_DIR}/dt={dt}/UF=*/")
+    validate_expected_csvs(csvs)
 
     dfs = []
     for p in csvs:
@@ -316,26 +342,19 @@ def ingest_day(dt: str) -> dict:
             snapshot_rows,
         )
 
-        ydt = (datetime.fromisoformat(dt) - timedelta(days=1)).date().isoformat()
+        baseline_label = "current_imoveis"
 
         # 2. Carregar ontem e hoje para comparação
-        cur.execute(
-            "SELECT uf, numero_imovel, payload_json, fp FROM snapshot_imoveis WHERE dt = %s",
-            (ydt,),
-        )
-        y_rows = cur.fetchall()
-        y = (
-            pd.DataFrame(y_rows, columns=["uf", "numero_imovel", "payload_json", "fp"])
-            if y_rows
-            else pd.DataFrame(columns=["uf", "numero_imovel", "payload_json", "fp"])
+        y = load_state_df(
+            cur,
+            "SELECT uf, numero_imovel, payload_json, fp FROM current_imoveis",
         )
 
-        cur.execute(
+        t = load_state_df(
+            cur,
             "SELECT uf, numero_imovel, payload_json, fp FROM snapshot_imoveis WHERE dt = %s",
             (dt,),
         )
-        t_rows = cur.fetchall()
-        t = pd.DataFrame(t_rows, columns=["uf", "numero_imovel", "payload_json", "fp"])
 
         changes_rows = []
 
@@ -442,16 +461,8 @@ def ingest_day(dt: str) -> dict:
                 changes_rows,
             )
 
-        # 3. Atualizar current_imoveis
-        cur.execute(
-            """
-            DELETE FROM current_imoveis
-            WHERE (uf, numero_imovel) IN (
-                SELECT uf, numero_imovel FROM snapshot_imoveis WHERE dt = %s
-            )
-        """,
-            (dt,),
-        )
+        # 3. Atualizar current_imoveis para espelhar exatamente o ultimo snapshot
+        cur.execute("TRUNCATE TABLE current_imoveis")
 
         current_rows = today_payload[
             ["uf", "numero_imovel", "payload_json", "fp", "dt", "source_file"]
@@ -469,7 +480,7 @@ def ingest_day(dt: str) -> dict:
 
         summary = {
             "dt": dt,
-            "yesterday": ydt,
+            "baseline": baseline_label,
             "rows_today": int(len(t)),
             "entered": int(len(entered)),
             "exited": int(len(exited)),

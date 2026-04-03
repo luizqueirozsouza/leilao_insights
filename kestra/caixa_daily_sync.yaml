@@ -1,0 +1,98 @@
+id: caixa_daily_sync
+namespace: app.leilao
+
+description: >
+  Fluxo diario para baixar os CSVs da Caixa, atualizar o PostgreSQL,
+  validar o volume final e remover arquivos antigos locais.
+
+labels:
+  project: app-leilao
+  owner: dados
+  source: caixa
+
+variables:
+  repo_dir: /app/app_leilao
+  min_records: 25000
+  timezone: America/Sao_Paulo
+
+triggers:
+  - id: every_morning
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * *"
+
+tasks:
+  - id: extract_csvs
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd "{{ vars.repo_dir }}"
+      - uv run python extrai.py
+
+  - id: ingest_database
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd "{{ vars.repo_dir }}"
+      - uv run python ingest.py | tee ingest_summary.json
+    outputFiles:
+      - ingest_summary.json
+
+  - id: validate_current_snapshot
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd "{{ vars.repo_dir }}"
+      - |
+        uv run python - <<'PY'
+        import os
+        from dotenv import load_dotenv
+        import psycopg2
+
+        load_dotenv(".env")
+        conn = psycopg2.connect(
+            host=os.getenv("host"),
+            port=os.getenv("port"),
+            user=os.getenv("user", "").replace('"', ""),
+            password=os.getenv("password", "").replace('"', ""),
+            database=os.getenv("database", "db_leiloes").replace('"', ""),
+            sslmode=os.getenv("sslmode", "disable"),
+        )
+        cur = conn.cursor()
+        cur.execute("select count(*) from current_imoveis")
+        total = int(cur.fetchone()[0])
+        conn.close()
+
+        print(f"current_imoveis={total}")
+        if total < int("{{ vars.min_records }}"):
+            raise SystemExit(
+                f"Volume abaixo do minimo esperado: {total} < {{ vars.min_records }}"
+            )
+        PY
+
+  - id: cleanup_old_csv_dirs
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd "{{ vars.repo_dir }}"
+      - TODAY_DIR="dt={{ now() | date('yyyy-MM-dd', vars.timezone) }}"
+      - |
+        find data/caixa \
+          -mindepth 1 \
+          -maxdepth 1 \
+          -type d \
+          -name 'dt=*' \
+          ! -name "$TODAY_DIR" \
+          -exec rm -rf {} +
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - echo "Falha no fluxo caixa_daily_sync em {{ now() }}"
+      - echo "Execution ID: {{ execution.id }}"
