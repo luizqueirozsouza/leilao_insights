@@ -7,7 +7,7 @@ ROOT_DIR = Path(__file__).resolve().parents[4]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from extrai import configure_logging, download_csv, UFS  # noqa: E402
+from extrai import configure_logging, create_session, download_csv, UFS  # noqa: E402
 
 
 class Command(BaseCommand):
@@ -50,24 +50,34 @@ class Command(BaseCommand):
         logger.info("Executando comando Django extrai_auctions para %s", dt)
         ok = []
         fail = []
+        session = create_session(timeout, logger)
 
         try:
-            download_csv("geral", root / "UF=geral", timeout, logger)
+            download_csv("geral", root / "UF=geral", timeout, logger, session=session)
         except Exception as exc:
             logger.warning("Falha ao baixar CSV geral: %s", exc)
 
-        for index, uf in enumerate(UFS, start=1):
-            logger.info("Processando UF %s/%s: %s", index, len(UFS), uf)
-            try:
-                path = download_csv(uf, root / f"UF={uf}", timeout, logger)
-                ok.append((uf, path))
-                if index < len(UFS) and delay > 0:
-                    import time
+        try:
+            for index, uf in enumerate(UFS, start=1):
+                logger.info("Processando UF %s/%s: %s", index, len(UFS), uf)
+                try:
+                    path = download_csv(
+                        uf,
+                        root / f"UF={uf}",
+                        timeout,
+                        logger,
+                        session=session,
+                    )
+                    ok.append((uf, path))
+                    if index < len(UFS) and delay > 0:
+                        import time
 
-                    time.sleep(delay)
-            except Exception as exc:
-                logger.exception("Falha ao baixar UF=%s", uf)
-                fail.append((uf, str(exc)))
+                        time.sleep(delay)
+                except Exception as exc:
+                    logger.exception("Falha ao baixar UF=%s", uf)
+                    fail.append((uf, str(exc)))
+        finally:
+            session.close()
 
         if fail:
             for uf, err in fail:
