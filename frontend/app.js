@@ -3,7 +3,6 @@ const API_BASE = (window.LEILAO_CONFIG && window.LEILAO_CONFIG.API_BASE) || "/ap
 const state = {
   uf: "",
   ufOptions: [],
-  ufSearch: "",
   cities: [],
   neighborhoods: [],
   modalidades: [],
@@ -18,7 +17,6 @@ const els = {
   statsAverage: document.querySelector("#stat-average"),
   statsMedian: document.querySelector("#stat-median"),
   uf: document.querySelector("#filter-uf"),
-  ufSearch: document.querySelector("#filter-uf-search"),
   cityTrigger: document.querySelector("#city-trigger"),
   cityPanel: document.querySelector("#city-panel"),
   neighborhoodTrigger: document.querySelector("#neighborhood-trigger"),
@@ -39,7 +37,6 @@ function setLoading(isLoading) {
   state.loading = isLoading;
   document.body.classList.toggle("loading", isLoading);
   els.uf.disabled = isLoading;
-  els.ufSearch.disabled = isLoading;
   els.cityTrigger.disabled = isLoading || !state.uf;
   els.neighborhoodTrigger.disabled = isLoading || !state.uf;
   els.modalityTrigger.disabled = isLoading;
@@ -118,12 +115,6 @@ function scheduleSearch() {
 }
 
 function renderUfOptions() {
-  const query = normalizeText(state.ufSearch);
-  const filtered = state.ufOptions.filter((item) => {
-    const label = `${item.label} ${item.value}`;
-    return !query || normalizeText(label).includes(query);
-  });
-
   els.uf.innerHTML = "";
   const allOption = document.createElement("option");
   allOption.value = "";
@@ -131,7 +122,7 @@ function renderUfOptions() {
   allOption.selected = state.uf === "";
   els.uf.appendChild(allOption);
 
-  filtered.forEach((item) => {
+  state.ufOptions.forEach((item) => {
     const option = document.createElement("option");
     option.value = item.value;
     option.textContent = `${item.label} (${formatNumber(item.count)})`;
@@ -341,11 +332,6 @@ function bindEvents() {
 
   document.addEventListener("click", closePanels);
 
-  els.ufSearch.addEventListener("input", () => {
-    state.ufSearch = els.ufSearch.value;
-    renderUfOptions();
-  });
-
   els.uf.addEventListener("change", async () => {
     state.uf = els.uf.value;
     state.cities = [];
@@ -362,12 +348,10 @@ function bindEvents() {
 
   els.clearButton.addEventListener("click", async () => {
     state.uf = "";
-    state.ufSearch = "";
     state.cities = [];
     state.neighborhoods = [];
     state.modalidades = [];
     state.sort = "price_asc";
-    els.ufSearch.value = "";
     await loadFilters();
     await search();
   });

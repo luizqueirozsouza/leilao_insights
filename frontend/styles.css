@@ -205,7 +205,6 @@ input {
   letter-spacing: 0.08em;
 }
 
-.field-search,
 .field select,
 .multi-trigger {
   width: 100%;
@@ -221,14 +220,6 @@ input {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-.field-search {
-  min-height: 44px;
-  padding: 0 14px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.field-search::placeholder,
 .panel-search::placeholder {
   color: #94a3b8;
 }
@@ -307,8 +298,7 @@ input {
 
 .loading .stat strong,
 .loading .multi-trigger,
-.loading #filter-uf,
-.loading .field-search {
+.loading #filter-uf {
   opacity: 0.7;
 }
 
