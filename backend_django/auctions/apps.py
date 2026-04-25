@@ -2,4 +2,5 @@ from django.apps import AppConfig
 
 
 class AuctionsConfig(AppConfig):
-    name = 'auctions'
+    name = 'backend_django.auctions'
+    label = 'auctions'

@@ -1,8 +1,14 @@
 import os
 import django
+import sys
+from pathlib import Path
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend_django.core.settings')
 django.setup()
 
 from django.db import connection

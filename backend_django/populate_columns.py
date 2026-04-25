@@ -1,12 +1,18 @@
 import os
 import django
 import re
+import sys
+from pathlib import Path
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend_django.core.settings')
 django.setup()
 
-from auctions.models import Auction
+from backend_django.auctions.models import Auction
 
 def clean_money(val):
     if not val: return 0
