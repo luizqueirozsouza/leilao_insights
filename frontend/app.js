@@ -8,7 +8,8 @@ const state = {
   neighborhoods: [],
   modalidades: [],
   sort: "price_asc",
-  loading: true
+  loading: true,
+  searchTimer: null
 };
 
 const els = {
@@ -107,6 +108,13 @@ function normalizeText(value) {
 
 function closePanels() {
   document.querySelectorAll(".multi-panel.open").forEach((item) => item.classList.remove("open"));
+}
+
+function scheduleSearch() {
+  window.clearTimeout(state.searchTimer);
+  state.searchTimer = window.setTimeout(() => {
+    search();
+  }, 250);
 }
 
 function renderUfOptions() {
@@ -237,17 +245,20 @@ async function loadFilters() {
     state.neighborhoods = [];
     updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
     await loadFilters();
+    scheduleSearch();
   }, { placeholder: "Digite para buscar cidade" });
 
   renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, () => {
     state.neighborhoods = readChecked(els.neighborhoodPanel);
     updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
+    scheduleSearch();
   }, { placeholder: "Digite para buscar bairro" });
 
   renderOptions(els.modalityPanel, "modalidade", data.modalidades, state.modalidades, async () => {
     state.modalidades = readChecked(els.modalityPanel);
     updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
     await loadFilters();
+    scheduleSearch();
   }, { placeholder: "Digite para buscar modalidade" });
 
   els.cityTrigger.disabled = state.loading || !state.uf;
@@ -340,11 +351,13 @@ function bindEvents() {
     state.cities = [];
     state.neighborhoods = [];
     await loadFilters();
+    scheduleSearch();
   });
 
   els.sortButton.addEventListener("click", () => {
     state.sort = state.sort === "price_asc" ? "price_desc" : "price_asc";
     els.sortButton.textContent = state.sort === "price_asc" ? "Menor preco" : "Maior preco";
+    scheduleSearch();
   });
 
   els.clearButton.addEventListener("click", async () => {
