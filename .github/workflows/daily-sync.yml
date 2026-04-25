@@ -14,7 +14,7 @@ jobs:
   sync:
     name: Run sync on VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    environment: production
 
     steps:
       - name: Validate required secrets
