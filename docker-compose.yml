@@ -3,11 +3,11 @@ services:
     build:
       context: .
     restart: always
-    ports:
-      - "${DJANGO_PORT:-8000}:8000"
     env_file:
       - .env
     command: ["uv", "run", "uvicorn", "backend_django.core.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+    expose:
+      - "8000"
     networks:
       - app-network
 
@@ -15,21 +15,21 @@ services:
     build:
       context: .
     restart: always
-    ports:
-      - "${FASTAPI_PORT:-8001}:8001"
     env_file:
       - .env
     command: ["uv", "run", "uvicorn", "backend_fastapi.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    expose:
+      - "8001"
     networks:
       - app-network
 
   frontend:
     image: nginx:1.27-alpine
     restart: always
-    ports:
-      - "${FRONTEND_PORT:-8080}:80"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
+    expose:
+      - "80"
     networks:
       - app-network
 
