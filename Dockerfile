@@ -17,4 +17,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "backend_django/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["uv", "run", "uvicorn", "backend_django.core.asgi:application", "--host", "0.0.0.0", "--port", "8000"]

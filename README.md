@@ -173,7 +173,7 @@ docker exec NOME_DO_CONTAINER uv run python backend_django/manage.py sync_auctio
 Exemplo com Docker Compose:
 
 ```bash
-cd /caminho/do/app_leilao && docker compose exec -T django uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
+cd /caminho/do/app_leilao && docker compose exec -T backend uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
 ```
 
 Para gerar uma chave SSH dedicada para o GitHub Actions:
@@ -186,7 +186,7 @@ Depois, adicione o conteudo de `~/.ssh/github_actions_app_leilao.pub` no arquivo
 
 Se usar `docker-compose.yml`, os servicos previstos sao:
 
-- `django`: API e comandos do projeto na porta `8000`.
+- `backend`: API Django e comandos do projeto na porta `8000`.
 - `fastapi`: servico auxiliar na porta `8001`.
 
 ## Deploy do Frontend no Cloudflare Pages
