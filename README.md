@@ -1,54 +1,123 @@
 # Leilao Insights
 
-O `app_leilao` centraliza a captura diaria dos imoveis da Caixa, atualiza o PostgreSQL e disponibiliza esses dados para consulta no frontend e no dashboard.
-
-Hoje, o fluxo oficial do projeto usa:
-- `extrai.py` para baixar os CSVs da Caixa
-- `ingest.py` para comparar com o estado atual e atualizar o PostgreSQL
-- backend Node.js + Express + TypeScript para servir a API
-- frontend React + Vite para a busca
-- dashboard Streamlit para analise operacional
+Painel de inteligencia imobiliaria para acompanhar imoveis de leilao da Caixa.
 
 ## Arquitetura
 
-1. A Caixa publica os CSVs por UF.
-2. O projeto baixa os arquivos para `data/caixa/dt=AAAA-MM-DD`.
-3. O `ingest.py` valida os arquivos do dia, compara com `current_imoveis`, grava eventos em `changes` e reconstrui `current_imoveis`.
-4. O backend le o PostgreSQL e entrega os dados para o frontend.
+Este repositorio usa o GitHub como origem unica para dois deploys:
 
-## Banco de dados
+- `frontend/`: site estatico publicado no Cloudflare Pages.
+- `backend_django/`: API JSON, admin, comandos de ingestao e pagina SSR auxiliar na VPS.
+- `backend_fastapi/`: servico complementar para futuras rotas analiticas e IA na VPS.
+- `extrai.py` e `ingest.py`: pipeline de coleta e carga dos dados.
+- `data/`: snapshots locais dos CSVs baixados da Caixa.
 
-O banco principal do projeto e o PostgreSQL.
+Fluxo em producao:
+
+1. Cloudflare Pages publica o conteudo de `frontend/`.
+2. O frontend chama a API Django hospedada na VPS.
+3. EasyPanel faz deploy do backend a partir do mesmo repositorio no GitHub.
+4. PostgreSQL fica na VPS ou em um servico externo.
+5. A atualizacao da base roda via comandos Django no container/servico do backend.
+
+## Banco de Dados
 
 Tabelas principais:
-- `snapshot_imoveis`: snapshot bruto da carga do dia
-- `current_imoveis`: estado atual da base
-- `changes`: eventos `ENTER`, `EXIT` e `UPDATE`
 
-Observacao:
-- `data/caixa.duckdb` e scripts antigos com DuckDB nao fazem parte do fluxo principal atual.
+- `snapshot_imoveis`: snapshot bruto da carga do dia.
+- `current_imoveis`: estado atual usado pela API e pelo painel.
+- `changes`: eventos `ENTER`, `EXIT` e `UPDATE`.
 
-## Fluxo de atualizacao
+## Desenvolvimento Local
 
-O fluxo atual funciona assim:
+Requisitos:
 
-1. `extrai.py` baixa os CSVs mais recentes da Caixa.
-2. `ingest.py` exige que todas as UFs tenham sido baixadas.
-3. O script compara a nova carga com `current_imoveis`.
-4. O script atualiza `changes`.
-5. O script reconstrui `current_imoveis` para refletir exatamente a ultima carga valida.
-6. Depois da carga, os CSVs antigos podem ser removidos.
-
-## Requisitos locais
-
-- Node.js 20+
 - Python 3.13+
-- `uv` instalado
-- acesso ao PostgreSQL configurado no `.env`
+- `uv`
+- PostgreSQL
 
-## Variaveis de ambiente
+Instale as dependencias:
 
-Crie ou ajuste o arquivo `.env` na raiz:
+```bash
+uv sync
+```
+
+Configure o arquivo `.env` na raiz:
+
+```env
+host=localhost
+port=5432
+database="db_leiloes"
+user="postgres"
+password="SUA_SENHA"
+sslmode="disable"
+SECRET_KEY="chave-local"
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:5500
+```
+
+Rode as migrations:
+
+```bash
+uv run python backend_django/manage.py migrate
+```
+
+Suba o Django:
+
+```bash
+uv run python backend_django/manage.py runserver
+```
+
+Suba o FastAPI, se precisar:
+
+```bash
+uv run uvicorn backend_fastapi.main:app --host 0.0.0.0 --port 8001
+```
+
+Para testar o frontend estatico localmente, abra `frontend/index.html` ou use uma extensao como Live Server. Se usar Live Server, mantenha a origem em `CORS_ALLOWED_ORIGINS`.
+
+## Atualizar a Base
+
+O fluxo completo baixa os CSVs e ingere no banco:
+
+```bash
+uv run python backend_django/manage.py sync_auctions --date 2026-04-25 --verbose
+```
+
+Por padrao, os comandos Django removem os CSVs do snapshot depois que a ingestao termina com sucesso. Para manter os arquivos para auditoria ou debug, use `--keep-csv`:
+
+```bash
+uv run python backend_django/manage.py sync_auctions --date 2026-04-25 --verbose --keep-csv
+```
+
+Tambem e possivel rodar em duas etapas:
+
+```bash
+uv run python backend_django/manage.py extrai_auctions --date 2026-04-25 --verbose
+uv run python backend_django/manage.py ingest_auctions --date 2026-04-25 --verbose
+```
+
+Os scripts diretos continuam disponiveis. Neles, a remocao dos CSVs e opcional com `--delete-csv`:
+
+```bash
+uv run python extrai.py --date 2026-04-25 --verbose
+uv run python ingest.py --date 2026-04-25 --verbose --delete-csv
+```
+
+## Deploy do Backend na VPS com EasyPanel
+
+Use o GitHub como origem do app no EasyPanel.
+
+Configuracao sugerida:
+
+- Tipo: Docker app ou Compose app.
+- Repositorio: este repositorio no GitHub.
+- Branch: `main` ou a branch usada em producao.
+- Dockerfile: `Dockerfile`.
+- Porta exposta pelo Django: `8000`.
+
+Variaveis de ambiente no EasyPanel:
 
 ```env
 host=SEU_HOST_POSTGRES
@@ -57,145 +126,122 @@ database="db_leiloes"
 user="postgres"
 password="SUA_SENHA"
 sslmode="disable"
-SERVER_PORT=3001
+SECRET_KEY="uma-chave-forte"
+DEBUG=False
+ALLOWED_HOSTS=api.seu-dominio.com,SEU_IP_DA_VPS
+CORS_ALLOWED_ORIGINS=https://seu-projeto.pages.dev,https://www.seu-dominio.com
 ```
 
-Para o frontend local, use `frontend/.env.local`:
+Comandos uteis no container do backend:
+
+```bash
+uv run python backend_django/manage.py migrate
+uv run python backend_django/manage.py sync_auctions --date 2026-04-25 --verbose
+```
+
+## Rotina Diaria com GitHub Actions
+
+O repositorio inclui o workflow `.github/workflows/daily-sync.yml`.
+
+Ele pode ser executado de duas formas:
+
+- Automaticamente todos os dias as 08:00 no horario de Sao Paulo.
+- Manualmente em `GitHub > Actions > Daily auction sync > Run workflow`.
+
+O GitHub Actions nao roda a ingestao dentro do proprio GitHub. Ele acessa a VPS por SSH e executa o comando de atualizacao la, onde estao o backend, o `.env` e o acesso ao banco.
+
+Configure estes secrets no GitHub em `Settings > Secrets and variables > Actions > New repository secret`:
+
+- `VPS_HOST`: IP ou dominio da VPS.
+- `VPS_USER`: usuario SSH da VPS.
+- `VPS_PORT`: porta SSH, opcional. Se nao configurar, usa `22`.
+- `VPS_SSH_KEY`: chave privada SSH autorizada na VPS.
+- `VPS_SYNC_COMMAND`: comando que sera executado na VPS.
+
+Exemplo de `VPS_SYNC_COMMAND` se o projeto estiver direto na VPS:
+
+```bash
+cd /caminho/do/app_leilao && uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
+```
+
+Exemplo se voce for executar dentro de um container Docker:
+
+```bash
+docker exec NOME_DO_CONTAINER uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
+```
+
+Exemplo com Docker Compose:
+
+```bash
+cd /caminho/do/app_leilao && docker compose exec -T django uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
+```
+
+Para gerar uma chave SSH dedicada para o GitHub Actions:
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-app-leilao" -f ~/.ssh/github_actions_app_leilao
+```
+
+Depois, adicione o conteudo de `~/.ssh/github_actions_app_leilao.pub` no arquivo `~/.ssh/authorized_keys` da VPS e salve o conteudo da chave privada `~/.ssh/github_actions_app_leilao` no secret `VPS_SSH_KEY`.
+
+Se usar `docker-compose.yml`, os servicos previstos sao:
+
+- `django`: API e comandos do projeto na porta `8000`.
+- `fastapi`: servico auxiliar na porta `8001`.
+
+## Deploy do Frontend no Cloudflare Pages
+
+Voce pode usar o mesmo repositorio GitHub no Cloudflare Pages.
+
+Configuracao do projeto Pages:
+
+- Framework preset: `None`.
+- Build command: deixe vazio.
+- Build output directory: `frontend`.
+- Root directory: deixe em branco se o Pages permitir escolher output `frontend`; caso contrario, defina `frontend` como root e use output `.`.
+
+Antes do deploy, ajuste `frontend/config.js` para apontar para a API da VPS:
+
+```js
+window.LEILAO_CONFIG = {
+  API_BASE: "https://api.seu-dominio.com/api"
+};
+```
+
+Depois de publicar o Pages, copie o dominio gerado, por exemplo:
+
+```text
+https://leilao-insights.pages.dev
+```
+
+Inclua esse dominio no backend:
 
 ```env
-VITE_API_BASE=http://localhost:3001/api
+CORS_ALLOWED_ORIGINS=https://leilao-insights.pages.dev
 ```
 
-## Como executar localmente
+Se tambem usar dominio proprio no Cloudflare Pages, inclua os dois:
 
-### 1. Instalar dependencias Python
-
-Na raiz do projeto:
-
-```bash
-uv sync
+```env
+CORS_ALLOWED_ORIGINS=https://leilao-insights.pages.dev,https://www.seu-dominio.com
 ```
 
-### 2. Subir o backend
+## API Django
 
-```bash
-cd backend
-npm install
-npm run dev
-```
+- `GET /api/stats`: estatisticas gerais.
+- `GET /api/filters`: filtros dinamicos.
+- `GET /api/cidades/?uf=SP`: cidades por UF.
+- `GET /api/bairros/?uf=SP&cidade=Sao+Paulo`: bairros por UF e cidade.
+- `GET /api/stats/filtered`: media e mediana filtradas.
+- `GET /api/properties`: lista de imoveis.
 
-Teste a API:
+## Checklist de Producao
 
-```text
-http://localhost:3001/api/stats
-```
-
-### 3. Subir o frontend
-
-Em outro terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend local:
-
-```text
-http://localhost:5173
-```
-
-### 4. Subir o dashboard Streamlit
-
-Opcional:
-
-```bash
-uv run streamlit run app.py
-```
-
-Dashboard local:
-
-```text
-http://localhost:8501
-```
-
-## Como atualizar o banco localmente
-
-Na raiz do projeto:
-
-```bash
-uv run python extrai.py
-uv run python ingest.py
-```
-
-Resultado esperado:
-- os CSVs do dia sao baixados para `data/caixa/dt=AAAA-MM-DD`
-- o PostgreSQL e atualizado
-- a API passa a refletir a nova base
-
-## Validacao rapida depois da carga
-
-1. Teste a API:
-
-```text
-http://localhost:3001/api/stats
-```
-
-2. Verifique se o frontend carrega filtros e resultados.
-
-3. Se quiser verificar direto no banco:
-
-```sql
-select count(*) from current_imoveis;
-```
-
-## Automacao diaria
-
-O repositorio possui um fluxo inicial do Kestra em:
-
-[`kestra/caixa_daily_sync.yaml`](./kestra/caixa_daily_sync.yaml)
-
-Esse fluxo:
-- baixa os CSVs do dia
-- executa a ingestao
-- valida o volume final em `current_imoveis`
-- remove diretorios antigos de CSV
-
-Antes de usar em producao, ajuste:
-- caminho do repositorio na VPS
-- horario do agendamento
-- politica de limpeza
-- notificacoes
-
-## Docker
-
-Para subir a stack com Docker Compose:
-
-```bash
-docker compose up -d --build
-```
-
-Servicos:
-- backend
-- frontend
-- dashboard
-
-## Observacoes operacionais
-
-- O backend em desenvolvimento precisa ler o `.env` da raiz do projeto.
-- Se a API responder erro e o banco estiver correto, valide primeiro `http://localhost:3001/api/stats`.
-- O frontend depende de `VITE_API_BASE` para apontar para a API correta.
-- Os CSVs antigos nao precisam ficar acumulados depois da carga bem-sucedida.
-
-## Tecnologias
-
-- Python
-- PostgreSQL
-- Node.js
-- Express
-- TypeScript
-- React
-- Vite
-- Streamlit
-- Kestra
+- Configurar PostgreSQL e variaveis no EasyPanel.
+- Rodar migrations no backend.
+- Configurar `ALLOWED_HOSTS` com dominio/API da VPS.
+- Configurar `CORS_ALLOWED_ORIGINS` com o dominio do Cloudflare Pages.
+- Ajustar `frontend/config.js` com a URL publica da API.
+- Publicar backend no EasyPanel a partir do GitHub.
+- Publicar frontend no Cloudflare Pages a partir do mesmo GitHub.
+- Rodar `sync_auctions` no backend para carregar a base inicial.

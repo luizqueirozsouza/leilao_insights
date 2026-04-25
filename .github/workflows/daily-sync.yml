@@ -1,0 +1,56 @@
+name: Daily auction sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 11:00 UTC = 08:00 em Sao Paulo.
+    - cron: "0 11 * * *"
+
+concurrency:
+  group: daily-auction-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Run sync on VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Validate required secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SYNC_COMMAND: ${{ secrets.VPS_SYNC_COMMAND }}
+        run: |
+          test -n "$VPS_HOST" || (echo "Missing secret VPS_HOST" && exit 1)
+          test -n "$VPS_USER" || (echo "Missing secret VPS_USER" && exit 1)
+          test -n "$VPS_SSH_KEY" || (echo "Missing secret VPS_SSH_KEY" && exit 1)
+          test -n "$VPS_SYNC_COMMAND" || (echo "Missing secret VPS_SYNC_COMMAND" && exit 1)
+
+      - name: Configure SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Trust VPS host key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run sync command
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SYNC_COMMAND: ${{ secrets.VPS_SYNC_COMMAND }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "$VPS_SYNC_COMMAND"
