@@ -12,22 +12,44 @@ concurrency:
 
 jobs:
   sync:
-    name: Run sync on VPS
+    name: Extract on GitHub and ingest on VPS
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 60
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync Python dependencies
+        run: uv sync --locked
+
+      - name: Define snapshot date
+        run: echo "RUN_DATE=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_ENV"
+
       - name: Validate required secrets
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_SYNC_COMMAND: ${{ secrets.VPS_SYNC_COMMAND }}
         run: |
           test -n "$VPS_HOST" || (echo "Missing secret VPS_HOST" && exit 1)
           test -n "$VPS_USER" || (echo "Missing secret VPS_USER" && exit 1)
           test -n "$VPS_SSH_KEY" || (echo "Missing secret VPS_SSH_KEY" && exit 1)
-          test -n "$VPS_SYNC_COMMAND" || (echo "Missing secret VPS_SYNC_COMMAND" && exit 1)
+
+      - name: Extract CSVs on GitHub runner
+        run: uv run python extrai.py --date "$RUN_DATE" --verbose
+
+      - name: Package snapshot
+        run: tar -czf "snapshot-${RUN_DATE}.tgz" "data/caixa/dt=${RUN_DATE}"
 
       - name: Configure SSH key
         env:
@@ -45,12 +67,32 @@ jobs:
           PORT="${VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Run sync command
+      - name: Upload snapshot to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_SYNC_COMMAND: ${{ secrets.VPS_SYNC_COMMAND }}
         run: |
           PORT="${VPS_PORT:-22}"
-          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "$VPS_SYNC_COMMAND"
+          scp -P "$PORT" "snapshot-${RUN_DATE}.tgz" "$VPS_USER@$VPS_HOST:/tmp/snapshot-${RUN_DATE}.tgz"
+
+      - name: Ingest snapshot on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "
+            set -e
+            CONTAINER=\$(docker ps --format '{{.Names}}' | grep '^projetos_leilao_insights-backend-' | head -n 1)
+            test -n \"\$CONTAINER\" || (echo 'Backend container not found' && exit 1)
+            docker cp /tmp/snapshot-${RUN_DATE}.tgz \"\$CONTAINER\":/tmp/snapshot-${RUN_DATE}.tgz
+            docker exec \"\$CONTAINER\" sh -lc '
+              mkdir -p /app/data &&
+              tar -xzf /tmp/snapshot-${RUN_DATE}.tgz -C /app &&
+              uv run python backend_django/manage.py ingest_auctions --date ${RUN_DATE} --verbose &&
+              rm -f /tmp/snapshot-${RUN_DATE}.tgz
+            '
+            rm -f /tmp/snapshot-${RUN_DATE}.tgz
+          "

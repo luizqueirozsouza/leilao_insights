@@ -148,7 +148,7 @@ Ele pode ser executado de duas formas:
 - Automaticamente todos os dias as 08:00 no horario de Sao Paulo.
 - Manualmente em `GitHub > Actions > Daily auction sync > Run workflow`.
 
-O GitHub Actions nao roda a ingestao dentro do proprio GitHub. Ele acessa a VPS por SSH e executa o comando de atualizacao la, onde estao o backend, o `.env` e o acesso ao banco.
+O GitHub Actions baixa os CSVs no proprio runner do GitHub e depois envia o snapshot para a VPS por SSH. A ingestao acontece dentro do container do backend, o que evita bloqueios de `403` quando a Caixa recusa o IP da VPS.
 
 Configure estes secrets no GitHub em `Settings > Secrets and variables > Actions > New repository secret`:
 
@@ -156,25 +156,6 @@ Configure estes secrets no GitHub em `Settings > Secrets and variables > Actions
 - `VPS_USER`: usuario SSH da VPS.
 - `VPS_PORT`: porta SSH, opcional. Se nao configurar, usa `22`.
 - `VPS_SSH_KEY`: chave privada SSH autorizada na VPS.
-- `VPS_SYNC_COMMAND`: comando que sera executado na VPS.
-
-Exemplo de `VPS_SYNC_COMMAND` se o projeto estiver direto na VPS:
-
-```bash
-cd /caminho/do/app_leilao && uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
-```
-
-Exemplo se voce for executar dentro de um container Docker:
-
-```bash
-docker exec NOME_DO_CONTAINER uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
-```
-
-Exemplo com Docker Compose:
-
-```bash
-cd /caminho/do/app_leilao && docker compose exec -T backend uv run python backend_django/manage.py sync_auctions --date $(date +%F) --verbose
-```
 
 Para gerar uma chave SSH dedicada para o GitHub Actions:
 
