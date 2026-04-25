@@ -26,7 +26,8 @@ body {
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
 }
 
@@ -204,6 +205,7 @@ select {
   letter-spacing: 0.08em;
 }
 
+.field-search,
 .field select,
 .multi-trigger {
   width: 100%;
@@ -217,6 +219,18 @@ select {
   font-size: 16px;
   font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.field-search {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field-search::placeholder,
+.panel-search::placeholder {
+  color: #94a3b8;
 }
 
 .multi-trigger:disabled {
@@ -233,7 +247,7 @@ select {
   right: 0;
   max-height: 260px;
   overflow: auto;
-  padding: 8px 0;
+  padding: 10px 0 8px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -242,6 +256,26 @@ select {
 
 .multi-panel.open {
   display: block;
+}
+
+.panel-search-wrap {
+  position: sticky;
+  top: -10px;
+  z-index: 1;
+  padding: 0 10px 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 85%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+.panel-search {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .option-row {
@@ -269,6 +303,13 @@ select {
   color: #64748b;
   text-align: center;
   font-weight: 700;
+}
+
+.loading .stat strong,
+.loading .multi-trigger,
+.loading #filter-uf,
+.loading .field-search {
+  opacity: 0.7;
 }
 
 .cards-grid {

@@ -2,10 +2,13 @@ const API_BASE = (window.LEILAO_CONFIG && window.LEILAO_CONFIG.API_BASE) || "/ap
 
 const state = {
   uf: "",
+  ufOptions: [],
+  ufSearch: "",
   cities: [],
   neighborhoods: [],
   modalidades: [],
-  sort: "price_asc"
+  sort: "price_asc",
+  loading: true
 };
 
 const els = {
@@ -14,6 +17,7 @@ const els = {
   statsAverage: document.querySelector("#stat-average"),
   statsMedian: document.querySelector("#stat-median"),
   uf: document.querySelector("#filter-uf"),
+  ufSearch: document.querySelector("#filter-uf-search"),
   cityTrigger: document.querySelector("#city-trigger"),
   cityPanel: document.querySelector("#city-panel"),
   neighborhoodTrigger: document.querySelector("#neighborhood-trigger"),
@@ -29,6 +33,25 @@ const els = {
   status: document.querySelector("#status"),
   template: document.querySelector("#property-template")
 };
+
+function setLoading(isLoading) {
+  state.loading = isLoading;
+  document.body.classList.toggle("loading", isLoading);
+  els.uf.disabled = isLoading;
+  els.ufSearch.disabled = isLoading;
+  els.cityTrigger.disabled = isLoading || !state.uf;
+  els.neighborhoodTrigger.disabled = isLoading || !state.uf;
+  els.modalityTrigger.disabled = isLoading;
+  els.sortButton.disabled = isLoading;
+  els.clearButton.disabled = isLoading;
+  els.searchButton.disabled = isLoading;
+  if (isLoading) {
+    els.statsTotal.textContent = "...";
+    els.statsCities.textContent = "...";
+    els.statsAverage.textContent = "...";
+    els.statsMedian.textContent = "...";
+  }
+}
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("pt-BR");
@@ -75,36 +98,102 @@ function selectedParams() {
   };
 }
 
-function renderOptions(panel, groupName, options, selectedValues, onChange) {
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function closePanels() {
+  document.querySelectorAll(".multi-panel.open").forEach((item) => item.classList.remove("open"));
+}
+
+function renderUfOptions() {
+  const query = normalizeText(state.ufSearch);
+  const filtered = state.ufOptions.filter((item) => {
+    const label = `${item.label} ${item.value}`;
+    return !query || normalizeText(label).includes(query);
+  });
+
+  els.uf.innerHTML = "";
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "Todos";
+  allOption.selected = state.uf === "";
+  els.uf.appendChild(allOption);
+
+  filtered.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = `${item.label} (${formatNumber(item.count)})`;
+    option.selected = item.value === state.uf;
+    els.uf.appendChild(option);
+  });
+}
+
+function renderOptions(panel, groupName, options, selectedValues, onChange, config = {}) {
   panel.innerHTML = "";
-  if (!options.length) {
-    const empty = document.createElement("div");
-    empty.className = "status";
-    empty.textContent = "Nenhuma opcao disponivel.";
-    panel.appendChild(empty);
-    return;
+  const { placeholder = "Digite para filtrar", multiple = true } = config;
+
+  const searchWrap = document.createElement("div");
+  searchWrap.className = "panel-search-wrap";
+
+  const searchInput = document.createElement("input");
+  searchInput.className = "panel-search";
+  searchInput.type = "search";
+  searchInput.placeholder = placeholder;
+  searchInput.autocomplete = "off";
+  searchWrap.appendChild(searchInput);
+  panel.appendChild(searchWrap);
+
+  const list = document.createElement("div");
+  panel.appendChild(list);
+
+  function draw(term = "") {
+    list.innerHTML = "";
+    const query = normalizeText(term);
+    const filtered = options.filter((option) => (
+      !query || normalizeText(option.label).includes(query) || normalizeText(option.value).includes(query)
+    ));
+
+    if (!filtered.length) {
+      const empty = document.createElement("div");
+      empty.className = "status";
+      empty.textContent = "Nenhuma opcao encontrada.";
+      list.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((option) => {
+      const label = document.createElement("label");
+      label.className = "option-row";
+
+      const input = document.createElement("input");
+      input.type = multiple ? "checkbox" : "radio";
+      input.name = groupName;
+      input.value = option.value;
+      input.checked = selectedValues.includes(option.value);
+      input.addEventListener("change", onChange);
+
+      const text = document.createElement("span");
+      text.textContent = option.label;
+
+      const count = document.createElement("small");
+      count.textContent = formatNumber(option.count);
+
+      label.append(input, text, count);
+      list.appendChild(label);
+    });
   }
 
-  options.forEach((option) => {
-    const label = document.createElement("label");
-    label.className = "option-row";
+  searchInput.addEventListener("input", () => draw(searchInput.value));
+  draw();
+  panel._searchInput = searchInput;
 
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.name = groupName;
-    input.value = option.value;
-    input.checked = selectedValues.includes(option.value);
-    input.addEventListener("change", onChange);
-
-    const text = document.createElement("span");
-    text.textContent = option.label;
-
-    const count = document.createElement("small");
-    count.textContent = formatNumber(option.count);
-
-    label.append(input, text, count);
-    panel.appendChild(label);
-  });
+  if (!options.length) {
+    draw(searchInput.value);
+  }
 }
 
 function readChecked(panel) {
@@ -129,6 +218,10 @@ function setupPanel(trigger, panel) {
       if (item !== panel) item.classList.remove("open");
     });
     panel.classList.toggle("open");
+    if (panel.classList.contains("open") && panel._searchInput) {
+      panel._searchInput.focus();
+      panel._searchInput.select();
+    }
   });
   panel.addEventListener("click", (event) => event.stopPropagation());
 }
@@ -136,35 +229,29 @@ function setupPanel(trigger, panel) {
 async function loadFilters() {
   const data = await api("/filters", selectedParams());
 
-  els.uf.innerHTML = '<option value="">Todos</option>';
-  data.ufs.forEach((item) => {
-    const option = document.createElement("option");
-    option.value = item.value;
-    option.textContent = `${item.label} (${formatNumber(item.count)})`;
-    option.selected = item.value === state.uf;
-    els.uf.appendChild(option);
-  });
+  state.ufOptions = data.ufs;
+  renderUfOptions();
 
   renderOptions(els.cityPanel, "city", data.cities, state.cities, async () => {
     state.cities = readChecked(els.cityPanel);
     state.neighborhoods = [];
     updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
     await loadFilters();
-  });
+  }, { placeholder: "Digite para buscar cidade" });
 
   renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, () => {
     state.neighborhoods = readChecked(els.neighborhoodPanel);
     updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
-  });
+  }, { placeholder: "Digite para buscar bairro" });
 
   renderOptions(els.modalityPanel, "modalidade", data.modalidades, state.modalidades, async () => {
     state.modalidades = readChecked(els.modalityPanel);
     updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
     await loadFilters();
-  });
+  }, { placeholder: "Digite para buscar modalidade" });
 
-  els.cityTrigger.disabled = !state.uf;
-  els.neighborhoodTrigger.disabled = !state.uf;
+  els.cityTrigger.disabled = state.loading || !state.uf;
+  els.neighborhoodTrigger.disabled = state.loading || !state.uf;
   updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
   updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
@@ -210,7 +297,6 @@ function renderProperties(properties) {
 
 async function loadStatsAndProperties() {
   setStatus("Carregando imoveis...");
-  els.searchButton.disabled = true;
   try {
     const [stats, filteredStats, properties] = await Promise.all([
       api("/stats"),
@@ -225,13 +311,16 @@ async function loadStatsAndProperties() {
     renderProperties(properties);
   } catch (error) {
     setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
-  } finally {
-    els.searchButton.disabled = false;
   }
 }
 
 async function search() {
-  await loadStatsAndProperties();
+  els.searchButton.disabled = true;
+  try {
+    await loadStatsAndProperties();
+  } finally {
+    els.searchButton.disabled = state.loading;
+  }
 }
 
 function bindEvents() {
@@ -239,8 +328,11 @@ function bindEvents() {
   setupPanel(els.neighborhoodTrigger, els.neighborhoodPanel);
   setupPanel(els.modalityTrigger, els.modalityPanel);
 
-  document.addEventListener("click", () => {
-    document.querySelectorAll(".multi-panel.open").forEach((item) => item.classList.remove("open"));
+  document.addEventListener("click", closePanels);
+
+  els.ufSearch.addEventListener("input", () => {
+    state.ufSearch = els.ufSearch.value;
+    renderUfOptions();
   });
 
   els.uf.addEventListener("change", async () => {
@@ -257,10 +349,12 @@ function bindEvents() {
 
   els.clearButton.addEventListener("click", async () => {
     state.uf = "";
+    state.ufSearch = "";
     state.cities = [];
     state.neighborhoods = [];
     state.modalidades = [];
     state.sort = "price_asc";
+    els.ufSearch.value = "";
     await loadFilters();
     await search();
   });
@@ -272,9 +366,15 @@ function bindEvents() {
 }
 
 async function init() {
+  setLoading(true);
+  setStatus("Carregando filtros e estatisticas...");
   bindEvents();
-  await loadFilters();
-  await search();
+  try {
+    await loadFilters();
+    await search();
+  } finally {
+    setLoading(false);
+  }
 }
 
 init();
