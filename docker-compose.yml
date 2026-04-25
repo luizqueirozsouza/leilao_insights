@@ -23,6 +23,16 @@ services:
     networks:
       - app-network
 
+  frontend:
+    image: nginx:1.27-alpine
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
