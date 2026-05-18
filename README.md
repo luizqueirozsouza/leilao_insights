@@ -139,31 +139,43 @@ uv run python backend_django/manage.py migrate
 uv run python backend_django/manage.py sync_auctions --date 2026-04-25 --verbose
 ```
 
-## Rotina Diaria com GitHub Actions
+## Rotina Diaria na VPS (EasyPanel Cron App)
 
-O repositorio inclui o workflow `.github/workflows/daily-sync.yml`.
+A rotina diaria foi migrada para VPS com orquestracao local:
 
-Ele pode ser executado de duas formas:
+- `pipeline/run_daily_pipeline.py`: executa `extrai -> ingest_dlt -> Telegram`.
+- `pipeline/ingest_dlt.py`: faz a ingestao no PostgreSQL usando DLT + SQL para manter `changes/current_imoveis`.
+- `pipeline/notify_telegram.py`: envia resumo de sucesso ou alerta de falha.
 
-- Automaticamente todos os dias as 08:00 no horario de Sao Paulo.
-- Manualmente em `GitHub > Actions > Daily auction sync > Run workflow`.
+### Variaveis de ambiente adicionais
 
-O GitHub Actions baixa os CSVs no proprio runner do GitHub e depois envia o snapshot para a VPS por SSH. A ingestao acontece dentro do container do backend, o que evita bloqueios de `403` quando a Caixa recusa o IP da VPS.
-
-Configure estes secrets no GitHub em `Settings > Secrets and variables > Actions > New repository secret`:
-
-- `VPS_HOST`: IP ou dominio da VPS.
-- `VPS_USER`: usuario SSH da VPS.
-- `VPS_PORT`: porta SSH, opcional. Se nao configurar, usa `22`.
-- `VPS_SSH_KEY`: chave privada SSH autorizada na VPS.
-
-Para gerar uma chave SSH dedicada para o GitHub Actions:
-
-```bash
-ssh-keygen -t ed25519 -C "github-actions-app-leilao" -f ~/.ssh/github_actions_app_leilao
+```env
+PIPELINE_TZ=America/Sao_Paulo
+DLT_PIPELINE_NAME=leilao_snapshot_daily
+DLT_DATASET_NAME=public
+TELEGRAM_BOT_TOKEN=123456:ABCDEF
+TELEGRAM_CHAT_ID=-1001234567890
 ```
 
-Depois, adicione o conteudo de `~/.ssh/github_actions_app_leilao.pub` no arquivo `~/.ssh/authorized_keys` da VPS e salve o conteudo da chave privada `~/.ssh/github_actions_app_leilao` no secret `VPS_SSH_KEY`.
+As variaveis de banco (`host`, `port`, `database`, `user`, `password`, `sslmode`) continuam obrigatorias.
+
+### Comando do cron (EasyPanel)
+
+Executar diariamente as 08:00 BRT:
+
+```bash
+uv run python pipeline/run_daily_pipeline.py --verbose
+```
+
+Para manter os CSVs apos sucesso:
+
+```bash
+uv run python pipeline/run_daily_pipeline.py --verbose --keep-csv
+```
+
+### Workflow legado (manual)
+
+O workflow `.github/workflows/daily-sync.yml` foi mantido apenas com `workflow_dispatch` para rollback/manual run. O gatilho automatico por `schedule` foi removido.
 
 Se usar `docker-compose.yml`, os servicos previstos sao:
 
