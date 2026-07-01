@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -76,13 +77,14 @@ def _format_success_message(dt: str, elapsed: float, summary: dict) -> str:
 
 
 def _format_error_message(dt: str, stage: str, exc: Exception) -> str:
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_error = html.escape(str(exc)[:1200])
     return (
         "<b>Pipeline Leilao: falha</b>\n"
         f"Data: <code>{dt}</code>\n"
         f"Etapa: <code>{stage}</code>\n"
         f"Horario: <code>{now}</code>\n"
-        f"Erro: <code>{str(exc)[:1200]}</code>"
+        f"Erro: <code>{safe_error}</code>"
     )
 
 

@@ -25,10 +25,11 @@ def send_telegram_message(text: str, logger: logging.Logger, disable_notificatio
     }
 
     response = requests.post(url, json=payload, timeout=30)
-    response.raise_for_status()
+    if response.status_code >= 400:
+        logger.error("Falha HTTP ao enviar Telegram | status=%s | body=%s", response.status_code, response.text)
+        response.raise_for_status()
     body = response.json()
     if not body.get("ok"):
         raise RuntimeError(f"Falha da API Telegram: {body}")
 
     return {"sent": True, "result": body.get("result")}
-
