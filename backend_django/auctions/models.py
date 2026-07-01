@@ -35,26 +35,3 @@ class Auction(models.Model):
 
     def __str__(self):
         return f"{self.numero_imovel} - {self.cidade}/{self.uf}"
-
-
-class AuctionEvent(models.Model):
-    EVENT_TYPES = (
-        ('ENTER', 'Entrada'),
-        ('EXIT', 'Saída'),
-        ('UPDATE', 'Atualização'),
-    )
-
-    auction = models.ForeignKey(Auction, on_delete=models.CASCADE, related_name='events', null=True)
-    dt = models.DateField(verbose_name="Data do Evento")
-    uf = models.CharField(max_length=2)
-    tipo_evento = models.CharField(max_length=10, choices=EVENT_TYPES)
-    numero_imovel = models.CharField(max_length=50)
-    changed_fields = models.TextField(null=True, blank=True)
-    before_json = models.JSONField(null=True, blank=True)
-    after_json = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        verbose_name = "Evento de Leilão"
-        verbose_name_plural = "Eventos de Leilão"
-        ordering = ['-dt']
-        db_table = 'changes'
