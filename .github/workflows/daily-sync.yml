@@ -46,7 +46,7 @@ jobs:
           test -n "$VPS_SSH_KEY" || (echo "Missing secret VPS_SSH_KEY" && exit 1)
 
       - name: Extract CSVs on GitHub runner
-        run: uv run python extrai.py --date "$RUN_DATE" --verbose
+        run: uv run python pipeline/extrai.py --date "$RUN_DATE" --verbose
 
       - name: Package snapshot
         run: tar -czf "snapshot-${RUN_DATE}.tgz" "data/caixa/dt=${RUN_DATE}"

@@ -17,7 +17,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from extrai import UFS, configure_logging as configure_extract_logging
+from pipeline.extrai import UFS, configure_logging as configure_extract_logging
 from pipeline.ingest_dlt import ingest_day_dlt
 from pipeline.notify_telegram import send_telegram_message
 
@@ -32,7 +32,7 @@ def _resolve_run_date(explicit_date: str | None) -> str:
 
 
 def _extract_for_date(dt: str, delay: float, timeout: int) -> dict:
-    from extrai import create_session, download_csv
+    from pipeline.extrai import create_session, download_csv
 
     logger = logging.getLogger("pipeline.extract")
     root = Path("data") / "caixa" / f"dt={dt}"
