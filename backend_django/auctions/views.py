@@ -263,14 +263,18 @@ def api_bairros(request):
 def api_stats(request):
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT COUNT(*), COUNT(DISTINCT uf), COUNT(DISTINCT cidade)
+            SELECT COUNT(*), COUNT(DISTINCT uf), COUNT(DISTINCT cidade), MAX(last_seen)
             FROM current_imoveis
         """)
         row = cursor.fetchone()
+    
+    last_updated = row[3].strftime('%d/%m/%Y') if row[3] else None
+    
     stats = {
         'total': row[0],
         'ufs': row[1],
         'cities': row[2],
+        'last_updated': last_updated,
     }
     return JsonResponse(stats)
 

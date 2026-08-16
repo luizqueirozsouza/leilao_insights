@@ -16,6 +16,7 @@ const els = {
   statsCities: document.querySelector("#stat-cities"),
   statsAverage: document.querySelector("#stat-average"),
   statsMedian: document.querySelector("#stat-median"),
+  lastUpdated: document.querySelector("#last-updated"),
   uf: document.querySelector("#filter-uf"),
   cityTrigger: document.querySelector("#city-trigger"),
   cityPanel: document.querySelector("#city-panel"),
@@ -310,6 +311,7 @@ async function loadStatsAndProperties() {
     els.statsCities.textContent = formatNumber(stats.cities);
     els.statsAverage.textContent = formatMoney(filteredStats.average);
     els.statsMedian.textContent = formatMoney(filteredStats.median);
+    els.lastUpdated.textContent = stats.last_updated || "-";
     renderProperties(properties);
   } catch (error) {
     setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
