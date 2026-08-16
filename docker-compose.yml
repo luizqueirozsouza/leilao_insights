@@ -11,18 +11,6 @@ services:
     networks:
       - app-network
 
-  fastapi:
-    build:
-      context: .
-    restart: always
-    env_file:
-      - .env
-    command: ["uv", "run", "uvicorn", "backend_fastapi.main:app", "--host", "0.0.0.0", "--port", "8001"]
-    expose:
-      - "8001"
-    networks:
-      - app-network
-
   frontend:
     image: nginx:1.27-alpine
     restart: always
