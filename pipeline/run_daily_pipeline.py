@@ -106,6 +106,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Nao envia notificacoes Telegram.",
     )
+    parser.add_argument(
+        "--skip-extract",
+        action="store_true",
+        help="Pula a etapa de download/extracao dos CSVs.",
+    )
     return parser.parse_args()
 
 
@@ -119,8 +124,11 @@ def main() -> int:
     logger.info("Timezone configurada: %s", os.getenv("PIPELINE_TZ", "America/Sao_Paulo"))
 
     try:
-        _extract_for_date(dt, args.delay, args.timeout)
-        logger.info("Extracao concluida com sucesso")
+        if not args.skip_extract:
+            _extract_for_date(dt, args.delay, args.timeout)
+            logger.info("Extracao concluida com sucesso")
+        else:
+            logger.info("Etapa de extracao pulada devido a flag --skip-extract")
 
         summary = ingest_day_dlt(dt, logger, delete_csv=not args.keep_csv)
         logger.info("Ingestao DLT concluida: %s", json.dumps(summary, ensure_ascii=False))
