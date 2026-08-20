@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Leilao Insights{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div class="li-brand">
+    <a href="{% url 'admin:index' %}" class="li-brand-mark" aria-label="Ir para o inicio">
+      <span class="li-brand-icon" aria-hidden="true">LI</span>
+      <span>
+        <strong>Leilao <em>Insights</em></strong>
+        <small>Inteligencia imobiliaria</small>
+      </span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block nav-global %}
+  <div class="li-topline">
+    <span>Painel administrativo</span>
+    <span class="li-topline-dot"></span>
+    <span>Dados de leiloes e assinaturas</span>
+  </div>
+{% endblock %}

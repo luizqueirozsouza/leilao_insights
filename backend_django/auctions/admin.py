@@ -1,6 +1,10 @@
 from django.contrib import admin
-from django.utils import timezone
 from .models import Auction, Assinatura, PreferenciaAlerta, NotificacaoEnviada, TipoImovel
+
+admin.site.site_header = "Leilao Insights"
+admin.site.site_title = "Leilao Insights | Administracao"
+admin.site.index_title = "Visao geral da operacao"
+
 
 @admin.register(Auction)
 class AuctionAdmin(admin.ModelAdmin):

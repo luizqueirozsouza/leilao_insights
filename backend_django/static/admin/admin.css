@@ -1,0 +1,267 @@
+:root {
+  --li-ink: #132238;
+  --li-muted: #66758a;
+  --li-navy: #10243e;
+  --li-blue: #1e5eff;
+  --li-blue-soft: #edf3ff;
+  --li-mint: #25b887;
+  --li-line: #dfe7f0;
+  --li-bg: #f4f7fb;
+  --li-card: #ffffff;
+  --li-shadow: 0 12px 32px rgba(20, 42, 74, .07);
+}
+
+body {
+  background: var(--li-bg);
+  color: var(--li-ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a:link,
+a:visited {
+  color: var(--li-blue);
+}
+
+#header {
+  min-height: 72px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  background: var(--li-navy);
+  box-shadow: 0 4px 18px rgba(16, 36, 62, .16);
+}
+
+.li-brand,
+.li-brand-mark {
+  display: flex;
+  align-items: center;
+}
+
+.li-brand-mark {
+  gap: 11px;
+  color: #fff !important;
+  text-decoration: none;
+}
+
+.li-brand-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--li-mint);
+  color: var(--li-navy);
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.li-brand strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -.02em;
+}
+
+.li-brand em {
+  color: #83e2c0;
+  font-style: normal;
+}
+
+.li-brand small {
+  display: block;
+  margin-top: 2px;
+  color: #a9b8cc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+#user-tools {
+  color: #c4d0df;
+  font-size: 12px;
+}
+
+#user-tools a {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, .35);
+}
+
+.li-topline {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 15px 38px 0;
+  color: var(--li-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.li-topline-dot {
+  width: 5px;
+  height: 5px;
+  display: inline-block;
+  margin: 0 8px 2px;
+  border-radius: 50%;
+  background: var(--li-mint);
+}
+
+#content {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 18px 38px 48px;
+}
+
+#content-main {
+  width: 100%;
+}
+
+.module,
+#changelist-filter,
+fieldset.module {
+  overflow: hidden;
+  border: 1px solid var(--li-line);
+  border-radius: 14px;
+  background: var(--li-card);
+  box-shadow: var(--li-shadow);
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+  padding: 14px 18px;
+  background: #f8faff;
+  color: var(--li-ink);
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.module table {
+  border-radius: 0;
+}
+
+th,
+td {
+  border-bottom-color: var(--li-line);
+}
+
+thead th {
+  background: #fbfcfe;
+  color: var(--li-muted);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+tbody tr:hover {
+  background: #f6f9ff;
+}
+
+.object-tools a,
+.button,
+input[type=submit],
+input[type=button],
+button {
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.object-tools a,
+.submit-row input.default,
+input[type=submit].default {
+  background: var(--li-blue);
+}
+
+.object-tools a:hover,
+.submit-row input.default:hover,
+input[type=submit].default:hover {
+  background: #164bd0;
+}
+
+input,
+textarea,
+select,
+.vTextField {
+  border: 1px solid #cbd7e5;
+  border-radius: 8px;
+  color: var(--li-ink);
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.vTextField:focus {
+  border-color: var(--li-blue);
+  box-shadow: 0 0 0 3px rgba(30, 94, 255, .12);
+  outline: none;
+}
+
+#changelist .actions,
+#toolbar {
+  border: 1px solid var(--li-line);
+  border-radius: 12px;
+  background: var(--li-card);
+}
+
+#changelist-filter {
+  margin-left: 22px;
+}
+
+#changelist-filter h2 {
+  background: var(--li-navy);
+  color: #fff;
+}
+
+#changelist-filter li.selected a {
+  color: var(--li-blue);
+  font-weight: 800;
+}
+
+.paginator {
+  color: var(--li-muted);
+}
+
+.messagelist li {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.messagelist li.success {
+  background: #e8faf3;
+  color: #167354;
+}
+
+.errornote,
+ul.errorlist {
+  border-radius: 10px;
+}
+
+#footer {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  #header {
+    padding: 14px 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  #user-tools {
+    width: 100%;
+  }
+
+  #content {
+    padding: 14px 16px 32px;
+  }
+
+  .li-topline {
+    padding: 13px 16px 0;
+  }
+
+  #changelist-filter {
+    margin: 16px 0 0;
+  }
+}
