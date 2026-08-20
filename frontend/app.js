@@ -409,6 +409,9 @@ async function loadStatsAndProperties() {
 async function search() {
   els.searchButton.disabled = true;
   try {
+    // Revalidate the subscription before each refresh so admin changes take effect immediately.
+    await loadSession();
+    await loadFilters();
     await loadStatsAndProperties();
   } finally {
     els.searchButton.disabled = state.loading;
@@ -715,6 +718,9 @@ function bindEvents() {
   });
 
   els.searchButton.addEventListener("click", search);
+  window.addEventListener("focus", () => {
+    if (!state.loading) search();
+  });
   els.toggleFilters.addEventListener("click", () => {
     els.filterGrid.hidden = !els.filterGrid.hidden;
   });

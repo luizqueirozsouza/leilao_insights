@@ -83,13 +83,14 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
     cidade = cidade or []
     bairro = bairro or []
     modalidade = modalidade or []
+    access_scope = 'demo' if request is not None and ver_amostra(request) else 'full'
 
     base_qs = Auction.objects.all()
     if request is not None:
         base_qs, _ = aplicar_modo_demo(base_qs, request)
 
     ufs = _cached_count_options(
-        f"filter_ufs:{'demo' if request is not None and ver_amostra(request) else 'full'}",
+        f"filter_ufs:{access_scope}",
         base_qs,
         'uf',
         600,
@@ -101,7 +102,7 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
     if modalidade:
         cities_qs = cities_qs.filter(modalidade__in=modalidade)
     cities = _cached_count_options(
-        f"filter_cities:{uf or 'all'}:{_cache_part(modalidade)}",
+        f"filter_cities:{access_scope}:{uf or 'all'}:{_cache_part(modalidade)}",
         cities_qs,
         'cidade',
     )
@@ -114,7 +115,7 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
     if modalidade:
         neighborhoods_qs = neighborhoods_qs.filter(modalidade__in=modalidade)
     neighborhoods = _cached_count_options(
-        f"filter_neighborhoods:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(modalidade)}",
+        f"filter_neighborhoods:{access_scope}:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(modalidade)}",
         neighborhoods_qs,
         'bairro',
     )
@@ -127,12 +128,16 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
     if bairro:
         modalidades_qs = modalidades_qs.filter(bairro__in=bairro)
     modalidades = _cached_count_options(
-        f"filter_modalidades:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(bairro)}",
+        f"filter_modalidades:{access_scope}:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(bairro)}",
         modalidades_qs,
         'modalidade',
     )
 
-    tipos = _count_options(base_qs, 'tipo_imovel')
+    tipos = _cached_count_options(
+        f"filter_tipos:{access_scope}",
+        base_qs,
+        'tipo_imovel',
+    )
 
     return ufs, cities, neighborhoods, modalidades, tipos
 
