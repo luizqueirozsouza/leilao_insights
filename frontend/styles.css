@@ -733,6 +733,10 @@ input {
   backdrop-filter: blur(4px);
 }
 
+.modal-overlay[hidden] {
+  display: none !important;
+}
+
 .modal {
   position: relative;
   width: min(460px, 100%);
