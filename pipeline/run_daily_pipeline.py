@@ -19,6 +19,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from pipeline.extrai import UFS, configure_logging as configure_extract_logging
 from pipeline.ingest_dlt import ingest_day_dlt
+from pipeline.enriched_ingest import ingest_enriched
 from pipeline.notify_telegram import send_telegram_message
 
 load_dotenv()
@@ -156,6 +157,8 @@ def main() -> int:
 
         summary = ingest_day_dlt(dt, logger, delete_csv=not args.keep_csv)
         logger.info("Ingestao DLT concluida: %s", json.dumps(summary, ensure_ascii=False))
+
+        ingest_enriched(dt, logger)
 
         _notify_subscribers(dt, logger)
 

@@ -48,8 +48,18 @@ jobs:
       - name: Extract CSVs on GitHub runner
         run: uv run python pipeline/extrai.py --date "$RUN_DATE" --verbose
 
+      - name: Enrich property details on GitHub runner
+        run: |
+          # Baixa/parseia detalhes no runner (nao bloqueado pela Caixa).
+          # Falhas parciais nao devem abortar o pipeline principal.
+          uv run python pipeline/enriquece.py --date "$RUN_DATE" --limit 5000 --workers 8 --verbose \
+            || echo "Enriquecimento parcial/inalado; seguindo sem dados enriquecidos."
+
       - name: Package snapshot
-        run: tar -czf "snapshot-${RUN_DATE}.tgz" "data/caixa/dt=${RUN_DATE}"
+        run: |
+          tar -czf "snapshot-${RUN_DATE}.tgz" \
+            "data/caixa/dt=${RUN_DATE}" \
+            $(test -d "data/enriquecidos/dt=${RUN_DATE}" && echo "data/enriquecidos/dt=${RUN_DATE}" || true)
 
       - name: Configure SSH key
         env:
