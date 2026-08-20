@@ -100,11 +100,19 @@ CORS_ALLOWED_ORIGINS = env.list(
     ],
 )
 
-# --- Sessao/CSRF para SPA cross-origin ---
-SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='None')
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='None')
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+# --- Sessao/CSRF ---
+# O login da SPA cross-origin (Cloudflare Pages -> API) exige SameSite=None.
+# Para nao quebrar o Django Admin (same-origin, via proxy), usamos SameSite=None
+# apenas quando CSRF_TRUSTED_ORIGINS (a origem do frontend) estiver configurada;
+# caso contrario caimos para Lax, que funciona no admin e no mesmo dominio.
+_has_spa_origin = bool(env.list('CSRF_TRUSTED_ORIGINS', default=[]))
+_default_samesite = 'None' if _has_spa_origin else 'Lax'
+_default_secure = not DEBUG
+
+SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default=_default_samesite)
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=_default_secure)
+CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default=_default_samesite)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=_default_secure)
 CSRF_COOKIE_HTTPONLY = False
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 
