@@ -130,7 +130,29 @@ SECRET_KEY="uma-chave-forte"
 DEBUG=False
 ALLOWED_HOSTS=api.seu-dominio.com,SEU_IP_DA_VPS
 CORS_ALLOWED_ORIGINS=https://seu-projeto.pages.dev,https://www.seu-dominio.com
+
+# Sessao/CSRF para o login cross-origin (SPA no Cloudflare Pages).
+# IMPORTANTE: adicione a origem do frontend tambem em CSRF_TRUSTED_ORIGINS,
+# senao o login/registro falha por CSRF.
+CSRF_TRUSTED_ORIGINS=https://seu-projeto.pages.dev,https://www.seu-dominio.com
+
+# E-mail (SMTP) - usado pelos alertas de assinante por e-mail
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.seu-provedor.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=no-reply@seu-dominio.com
+EMAIL_HOST_PASSWORD=SUA_SENHA_SMTP
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=Leilao Insights <no-reply@seu-dominio.com>
+
+# WhatsApp (opcional) - usado pelos alertas de assinante via WhatsApp
+# Se ausente, o canal WhatsApp fica indisponivel e so o e-mail e usado.
+WHATSAPP_TOKEN=SEU_TOKEN
+WHATSAPP_PHONE_ID=SEU_PHONE_ID
+# WHATSAPP_API_URL= (opcional; default: Graph API v18.0)
 ```
+
+> Nota: com `DEBUG=False`, os cookies de sessao/CSRF usam `SameSite=None; Secure`, exigindo HTTPS em ambos (API e frontend). Em desenvolvimento local (`DEBUG=True`), o default e `Secure=False`, o que permite testar em `http://localhost`.
 
 Comandos uteis no container do backend:
 
@@ -221,20 +243,66 @@ CORS_ALLOWED_ORIGINS=https://leilao-insights.pages.dev,https://www.seu-dominio.c
 
 ## API Django
 
-- `GET /api/stats`: estatisticas gerais.
-- `GET /api/filters`: filtros dinamicos.
+- `GET /api/stats`: estatisticas gerais (inclui `em_demo` para indicar modo demonstracao).
+- `GET /api/filters`: filtros dinamicos (UF, cidade, bairro, modalidade e tipo de imovel).
 - `GET /api/cidades/?uf=SP`: cidades por UF.
 - `GET /api/bairros/?uf=SP&cidade=Sao+Paulo`: bairros por UF e cidade.
 - `GET /api/stats/filtered`: media e mediana filtradas.
-- `GET /api/properties`: lista de imoveis.
+- `GET /api/properties`: lista de imoveis (aceita filtro `tipo=casa|apartamento|terreno`).
+- `GET /api/property/<numero_imovel>`: detalhes enriquecidos do imovel, buscados sob demanda na pagina da Caixa e em cache.
+- `POST /api/registro`: cria conta (email + senha).
+- `POST /api/login`: autentica e inicia sessao.
+- `POST /api/logout`: encerra a sessao.
+- `GET /api/me`: dados do usuario autenticado (assinatura e preferencias de alerta).
+- `GET/POST /api/preferencias`: listar/criar preferencias de alerta (somente assinantes).
+- `PUT/DELETE /api/preferencias/<id>`: atualizar/remover preferencia de alerta.
+
+## Modo Demonstracao, Assinaturas e Alertas
+
+Sem login (ou sem assinatura ativa), o painel exibe apenas uma **amostra de demonstracao**
+(30 imoveis cobrindo varias UFs), com banner avisando o modo demo. O acesso completo e
+liberado apenas para usuarios com **assinatura ativa**.
+
+- A assinatura e ativada/desativada manualmente no Django Admin (modelo `Assinatura`),
+  com validade opcional (`data_fim`). Nao ha gateway de pagamento nesta fase.
+- **Alertas**: o assinante configura preferencias (UF/cidade/bairro/modalidade) e canais
+  (e-mail e/ou WhatsApp). A cada ingestao diaria, os eventos `ENTER`/`EXIT`/`UPDATE` da
+  tabela `changes` sao cruzados com as preferencias e notificacoes sao disparadas.
+- A entrega usa `backend_django/auctions/notifiers.py` (SMTP para e-mail e interface para
+  WhatsApp). Registro em `NotificacaoEnviada` evita envio duplicado na mesma data.
+
+### Comandos novos
+
+- `backfill_tipo_imovel`: preenche `tipo_imovel` dos imoveis existentes.
+- `notify_subscribers`: dispara alertas com base nos eventos do dia (`--date`, `--dry-run`).
+
+```bash
+uv run python backend_django/manage.py backfill_tipo_imovel
+uv run python backend_django/manage.py notify_subscribers --date 2026-04-25 --dry-run
+```
+
+O `notify_subscribers` e chamado automaticamente pelo `pipeline/run_daily_pipeline.py`
+apos a ingestao.
+
+## Tipo de Imovel e Enriquecimento
+
+- `tipo_imovel` normaliza cada imovel em `apartamento`, `casa`, `terreno` ou `outro`,
+  derivado deterministicamente na ingestao e filtrável no painel.
+- O endpoint `GET /api/property/<numero>` busca, sob demanda, os dados detalhados da pagina
+  da Caixa (area, quartos, matricula, comarca, formas de pagamento e regras do certame),
+  guardando o resultado em `dados_enriquecidos` para consultas futuras. O parser esta em
+  `backend_django/auctions/caixa_detail.py`.
 
 ## Checklist de Producao
 
 - Configurar PostgreSQL e variaveis no EasyPanel.
 - Rodar migrations no backend.
 - Configurar `ALLOWED_HOSTS` com dominio/API da VPS.
-- Configurar `CORS_ALLOWED_ORIGINS` com o dominio do Cloudflare Pages.
+- Configurar `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS` com o dominio do Cloudflare Pages.
+- Adicionar `EMAIL_*` (e, se usar, `WHATSAPP_*`) para os alertas de assinante.
+- Rodar `backfill_tipo_imovel` para preencher o tipo dos imoveis existentes.
 - Ajustar `frontend/config.js` com a URL publica da API.
 - Publicar backend no EasyPanel a partir do GitHub.
 - Publicar frontend no Cloudflare Pages a partir do mesmo GitHub.
 - Rodar `sync_auctions` no backend para carregar a base inicial.
+- Ativar assinaturas no Django Admin (modelo `Assinatura`) para liberar acesso completo.
