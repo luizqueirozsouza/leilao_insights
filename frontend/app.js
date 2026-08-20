@@ -43,6 +43,7 @@ const els = {
   status: document.querySelector("#status"),
   template: document.querySelector("#property-template"),
   demoBanner: document.querySelector("#demo-banner"),
+  demoText: document.querySelector("#demo-text"),
   demoCta: document.querySelector("#demo-cta"),
   accountBar: document.querySelector("#account-bar"),
   accountBtn: document.querySelector("#account-btn"),
@@ -397,14 +398,7 @@ async function loadStatsAndProperties() {
     els.statsMedian.textContent = formatMoney(filteredStats.median);
     els.lastUpdated.textContent = stats.last_updated || "-";
 
-    if (stats.em_demo) {
-      els.demoBanner.hidden = false;
-      if (state.session && state.session.assinatura) {
-        els.demoBanner.hidden = true;
-      }
-    } else {
-      els.demoBanner.hidden = true;
-    }
+    renderDemoBanner(stats.em_demo);
 
     renderProperties(properties);
   } catch (error) {
@@ -427,7 +421,29 @@ function isAssinante() {
   return !!(state.session && state.session.autenticado && state.session.assinatura && state.session.assinatura.ativa);
 }
 
+function isAuthenticated() {
+  return !!(state.session && state.session.autenticado);
+}
+
+function renderDemoBanner(isDemo) {
+  const authenticated = isAuthenticated();
+  els.demoBanner.hidden = !isDemo || isAssinante();
+  els.demoCta.hidden = authenticated;
+  els.demoText.innerHTML = authenticated
+    ? "Voce esta vendo uma amostra de imoveis. <strong>Assine</strong> para acessar o acervo completo e receber alertas de novos imoveis."
+    : "Voce esta vendo uma amostra de imoveis. <strong>Crie sua conta e assine</strong> para acessar o acervo completo e receber alertas de novos imoveis.";
+}
+
+function renderAuthOptions() {
+  els.tabRegister.hidden = isAuthenticated();
+  if (isAuthenticated() && state.authMode === "register") {
+    setAuthMode("login");
+  }
+}
+
 function renderAccount() {
+  renderAuthOptions();
+  renderDemoBanner(false);
   if (!state.session || !state.session.autenticado) {
     els.accountBtn.textContent = "Entrar";
     els.accountBtn.onclick = () => openAuth("login");
