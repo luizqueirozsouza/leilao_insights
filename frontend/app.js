@@ -127,6 +127,7 @@ async function api(path, params, options = {}) {
   const opts = {
     method,
     credentials: "include",
+    cache: method === "GET" ? "no-store" : "default",
     headers: { "Content-Type": "application/json" },
   };
   if (method !== "GET") {
@@ -306,9 +307,10 @@ async function loadFilters() {
     scheduleSearch();
   }, { placeholder: "Digite para buscar cidade" });
 
-  renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, () => {
+  renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, async () => {
     state.neighborhoods = readChecked(els.neighborhoodPanel);
     updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
+    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar bairro" });
 
@@ -319,9 +321,10 @@ async function loadFilters() {
     scheduleSearch();
   }, { placeholder: "Digite para buscar modalidade" });
 
-  renderOptions(els.typePanel, "tipo", data.tipos, state.tipos, () => {
+  renderOptions(els.typePanel, "tipo", data.tipos, state.tipos, async () => {
     state.tipos = readChecked(els.typePanel);
     updateTrigger(els.typeTrigger, state.tipos, "Todos", "selecionados");
+    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar tipo" });
 
