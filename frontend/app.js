@@ -50,6 +50,7 @@ const els = {
   authModal: document.querySelector("#auth-modal"),
   authClose: document.querySelector("#auth-close"),
   authTitle: document.querySelector("#auth-title"),
+  authSub: document.querySelector("#auth-sub"),
   authForm: document.querySelector("#auth-form"),
   authEmail: document.querySelector("#auth-email"),
   authPassword: document.querySelector("#auth-password"),
@@ -457,6 +458,9 @@ function openAuth(mode) {
 function setAuthMode(mode) {
   const isLogin = mode === "login";
   els.authTitle.textContent = isLogin ? "Entrar" : "Criar conta";
+  els.authSub.textContent = isLogin
+    ? "Acesse sua conta para ver todos os imoveis."
+    : "Crie sua conta para comecar a usar o painel.";
   els.authSubmit.textContent = isLogin ? "Entrar" : "Criar conta";
   els.tabLogin.classList.toggle("active", isLogin);
   els.tabRegister.classList.toggle("active", !isLogin);

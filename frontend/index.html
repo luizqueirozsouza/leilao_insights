@@ -157,7 +157,15 @@
     <div class="modal-overlay" id="auth-modal" hidden>
       <div class="modal" role="dialog" aria-modal="true">
         <button class="modal-close" id="auth-close" type="button" aria-label="Fechar">&times;</button>
-        <h2 id="auth-title">Entrar</h2>
+        <div class="auth-head">
+          <div class="auth-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5h-5.2v-6.4H8.7V21H3.5a.5.5 0 0 1-.5-.5v-9.7Z" />
+            </svg>
+          </div>
+          <h2 id="auth-title">Entrar</h2>
+          <p class="auth-sub" id="auth-sub">Acesse sua conta para ver todos os imoveis.</p>
+        </div>
         <div class="auth-toggle">
           <button class="auth-tab active" id="tab-login" type="button">Entrar</button>
           <button class="auth-tab" id="tab-register" type="button">Criar conta</button>
@@ -165,14 +173,15 @@
         <form id="auth-form">
           <label class="auth-field">
             <span>Email</span>
-            <input type="email" id="auth-email" required autocomplete="email" />
+            <input type="email" id="auth-email" required autocomplete="email" placeholder="voce@email.com" />
           </label>
           <label class="auth-field">
             <span>Senha</span>
-            <input type="password" id="auth-password" required autocomplete="current-password" />
+            <input type="password" id="auth-password" required autocomplete="current-password" placeholder="Sua senha" />
           </label>
           <div class="auth-error" id="auth-error" hidden></div>
           <button class="auth-submit" id="auth-submit" type="submit">Entrar</button>
+          <p class="auth-foot">Assinatura ativa e necessaria para acesso completo e alertas.</p>
         </form>
       </div>
     </div>
