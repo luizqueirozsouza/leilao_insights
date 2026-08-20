@@ -29,25 +29,36 @@
           </div>
         </div>
 
-        <div class="stats-grid" id="stats">
-          <article class="stat">
-            <small>Imoveis</small>
-            <strong id="stat-total">-</strong>
-          </article>
-          <article class="stat">
-            <small>Cidades</small>
-            <strong id="stat-cities">-</strong>
-          </article>
-          <article class="stat">
-            <small>Media Avaliacao</small>
-            <strong id="stat-average">-</strong>
-          </article>
-          <article class="stat">
-            <small>Mediana</small>
-            <strong id="stat-median">-</strong>
-          </article>
+        <div class="topbar-right">
+          <div class="stats-grid" id="stats">
+            <article class="stat">
+              <small>Imoveis</small>
+              <strong id="stat-total">-</strong>
+            </article>
+            <article class="stat">
+              <small>Cidades</small>
+              <strong id="stat-cities">-</strong>
+            </article>
+            <article class="stat">
+              <small>Media Avaliacao</small>
+              <strong id="stat-average">-</strong>
+            </article>
+            <article class="stat">
+              <small>Mediana</small>
+              <strong id="stat-median">-</strong>
+            </article>
+          </div>
+          <div class="account-bar" id="account-bar">
+            <button class="account-btn" id="account-btn" type="button">Entrar</button>
+          </div>
         </div>
       </header>
+
+      <div class="demo-banner" id="demo-banner" hidden>
+        <span class="demo-badge">Modo demonstracao</span>
+        <span class="demo-text">Voce esta vendo uma amostra de imoveis. <strong>Crie sua conta e assine</strong> para acessar o acervo completo e receber alertas de novos imoveis.</span>
+        <button class="demo-cta" id="demo-cta" type="button">Criar conta</button>
+      </div>
 
       <section class="filters">
         <div class="filters-head">
@@ -87,6 +98,17 @@
             <button class="multi-trigger" id="modality-trigger" type="button">Todas</button>
             <div class="multi-panel" id="modality-panel"></div>
           </div>
+
+          <div class="field">
+            <span>Tipo de imovel</span>
+            <button class="multi-trigger" id="type-trigger" type="button">Todos</button>
+            <div class="multi-panel" id="type-panel"></div>
+          </div>
+
+          <button class="alertas-btn" id="alertas-btn" type="button" hidden>
+            <span class="icon-bell" aria-hidden="true"></span>
+            Meus alertas
+          </button>
         </div>
       </section>
 
@@ -103,6 +125,7 @@
           <div class="badges">
             <span class="uf-badge"></span>
             <span class="discount-badge"></span>
+            <span class="type-badge" hidden></span>
           </div>
         </div>
         <div class="card-body">
@@ -124,9 +147,83 @@
           </div>
           <p class="description"></p>
         </div>
-        <a class="doc-link" target="_blank" rel="noopener noreferrer">Ver documentacao</a>
+        <div class="card-actions">
+          <button class="detail-button" type="button">Detalhes</button>
+          <a class="doc-link" target="_blank" rel="noopener noreferrer">Ver documentacao</a>
+        </div>
       </article>
     </template>
+
+    <div class="modal-overlay" id="auth-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true">
+        <button class="modal-close" id="auth-close" type="button" aria-label="Fechar">&times;</button>
+        <h2 id="auth-title">Entrar</h2>
+        <div class="auth-toggle">
+          <button class="auth-tab active" id="tab-login" type="button">Entrar</button>
+          <button class="auth-tab" id="tab-register" type="button">Criar conta</button>
+        </div>
+        <form id="auth-form">
+          <label class="auth-field">
+            <span>Email</span>
+            <input type="email" id="auth-email" required autocomplete="email" />
+          </label>
+          <label class="auth-field">
+            <span>Senha</span>
+            <input type="password" id="auth-password" required autocomplete="current-password" />
+          </label>
+          <div class="auth-error" id="auth-error" hidden></div>
+          <button class="auth-submit" id="auth-submit" type="submit">Entrar</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="alerts-modal" hidden>
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <button class="modal-close" id="alerts-close" type="button" aria-label="Fechar">&times;</button>
+        <h2>Meus alertas</h2>
+        <p class="modal-sub">Receba notificacoes por e-mail/WhatsApp quando houver imoveis novos, removidos ou alterados que correspondam aos seus filtros.</p>
+        <div class="alerts-status" id="alerts-status" hidden></div>
+        <form id="alert-form" class="alert-form">
+          <div class="alert-grid">
+            <label class="field">
+              <span>UF</span>
+              <select id="alert-uf"><option value="">Todas</option></select>
+            </label>
+            <label class="auth-field">
+              <span>Cidades (separadas por virgula)</span>
+              <input type="text" id="alert-cidades" placeholder="ex.: Sao Paulo, Campinas" />
+            </label>
+            <label class="auth-field">
+              <span>Bairros (separados por virgula)</span>
+              <input type="text" id="alert-bairros" placeholder="ex.: Centro, Moema" />
+            </label>
+            <label class="auth-field">
+              <span>Modalidades (separadas por virgula)</span>
+              <input type="text" id="alert-modalidades" placeholder="ex.: Venda, Leilao" />
+            </label>
+          </div>
+          <div class="alert-channels">
+            <label class="channel"><input type="checkbox" id="alert-email" checked /> E-mail</label>
+            <label class="channel"><input type="checkbox" id="alert-whatsapp" /> WhatsApp</label>
+            <label class="auth-field wa-field">
+              <span>WhatsApp (ex.: 5511999999999)</span>
+              <input type="text" id="alert-whatsapp-num" placeholder="5511999999999" />
+            </label>
+          </div>
+          <button class="auth-submit" id="alert-submit" type="submit">Salvar alerta</button>
+        </form>
+        <div class="alerts-list" id="alerts-list"></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="detail-modal" hidden>
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <button class="modal-close" id="detail-close" type="button" aria-label="Fechar">&times;</button>
+        <h2 id="detail-title">Detalhes do imovel</h2>
+        <div class="detail-loading" id="detail-loading">Carregando detalhes...</div>
+        <div class="detail-body" id="detail-body" hidden></div>
+      </div>
+    </div>
 
     <script src="./config.js"></script>
     <script src="./app.js"></script>

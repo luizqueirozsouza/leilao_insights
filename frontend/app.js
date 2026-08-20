@@ -6,10 +6,18 @@ const state = {
   cities: [],
   neighborhoods: [],
   modalidades: [],
+  tipos: [],
   sort: "price_asc",
   loading: true,
-  searchTimer: null
+  searchTimer: null,
+  session: null,
+  authMode: "login",
 };
+
+function csrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
 
 const els = {
   statsTotal: document.querySelector("#stat-total"),
@@ -24,6 +32,8 @@ const els = {
   neighborhoodPanel: document.querySelector("#neighborhood-panel"),
   modalityTrigger: document.querySelector("#modality-trigger"),
   modalityPanel: document.querySelector("#modality-panel"),
+  typeTrigger: document.querySelector("#type-trigger"),
+  typePanel: document.querySelector("#type-panel"),
   sortButton: document.querySelector("#sort-button"),
   clearButton: document.querySelector("#clear-button"),
   searchButton: document.querySelector("#search-button"),
@@ -31,7 +41,40 @@ const els = {
   filterGrid: document.querySelector("#filter-grid"),
   properties: document.querySelector("#properties"),
   status: document.querySelector("#status"),
-  template: document.querySelector("#property-template")
+  template: document.querySelector("#property-template"),
+  demoBanner: document.querySelector("#demo-banner"),
+  demoCta: document.querySelector("#demo-cta"),
+  accountBar: document.querySelector("#account-bar"),
+  accountBtn: document.querySelector("#account-btn"),
+  alertasBtn: document.querySelector("#alertas-btn"),
+  authModal: document.querySelector("#auth-modal"),
+  authClose: document.querySelector("#auth-close"),
+  authTitle: document.querySelector("#auth-title"),
+  authForm: document.querySelector("#auth-form"),
+  authEmail: document.querySelector("#auth-email"),
+  authPassword: document.querySelector("#auth-password"),
+  authError: document.querySelector("#auth-error"),
+  authSubmit: document.querySelector("#auth-submit"),
+  tabLogin: document.querySelector("#tab-login"),
+  tabRegister: document.querySelector("#tab-register"),
+  alertsModal: document.querySelector("#alerts-modal"),
+  alertsClose: document.querySelector("#alerts-close"),
+  alertsStatus: document.querySelector("#alerts-status"),
+  alertForm: document.querySelector("#alert-form"),
+  alertUf: document.querySelector("#alert-uf"),
+  alertCidades: document.querySelector("#alert-cidades"),
+  alertBairros: document.querySelector("#alert-bairros"),
+  alertModalidades: document.querySelector("#alert-modalidades"),
+  alertEmail: document.querySelector("#alert-email"),
+  alertWhatsapp: document.querySelector("#alert-whatsapp"),
+  alertWhatsappNum: document.querySelector("#alert-whatsapp-num"),
+  alertSubmit: document.querySelector("#alert-submit"),
+  alertsList: document.querySelector("#alerts-list"),
+  detailModal: document.querySelector("#detail-modal"),
+  detailClose: document.querySelector("#detail-close"),
+  detailTitle: document.querySelector("#detail-title"),
+  detailLoading: document.querySelector("#detail-loading"),
+  detailBody: document.querySelector("#detail-body"),
 };
 
 function setLoading(isLoading) {
@@ -41,6 +84,7 @@ function setLoading(isLoading) {
   els.cityTrigger.disabled = isLoading || !state.uf;
   els.neighborhoodTrigger.disabled = isLoading || !state.uf;
   els.modalityTrigger.disabled = isLoading;
+  els.typeTrigger.disabled = isLoading;
   els.sortButton.disabled = isLoading;
   els.clearButton.disabled = isLoading;
   els.searchButton.disabled = isLoading;
@@ -59,7 +103,7 @@ function formatNumber(value) {
 function formatMoney(value) {
   return Number(value || 0).toLocaleString("pt-BR", {
     style: "currency",
-    currency: "BRL"
+    currency: "BRL",
   });
 }
 
@@ -76,9 +120,28 @@ function qs(params = {}) {
   return value ? `?${value}` : "";
 }
 
-async function api(path, params) {
-  const response = await fetch(`${API_BASE}${path}${qs(params)}`);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+async function api(path, params, options = {}) {
+  const method = options.method || "GET";
+  const opts = {
+    method,
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  };
+  if (method !== "GET") {
+    opts.headers["X-CSRFToken"] = csrfToken();
+  }
+  if (options.body !== undefined) {
+    opts.body = JSON.stringify(options.body);
+  }
+  const response = await fetch(`${API_BASE}${path}${qs(params)}`, opts);
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
+    try {
+      const j = await response.json();
+      if (j.error) detail = j.error;
+    } catch (e) {}
+    throw new Error(detail);
+  }
   return response.json();
 }
 
@@ -93,7 +156,8 @@ function selectedParams() {
     city: state.cities,
     neighborhood: state.neighborhoods,
     modalidade: state.modalidades,
-    sort: state.sort
+    tipo: state.tipos,
+    sort: state.sort,
   };
 }
 
@@ -253,11 +317,18 @@ async function loadFilters() {
     scheduleSearch();
   }, { placeholder: "Digite para buscar modalidade" });
 
+  renderOptions(els.typePanel, "tipo", data.tipos, state.tipos, () => {
+    state.tipos = readChecked(els.typePanel);
+    updateTrigger(els.typeTrigger, state.tipos, "Todos", "selecionados");
+    scheduleSearch();
+  }, { placeholder: "Digite para buscar tipo" });
+
   els.cityTrigger.disabled = state.loading || !state.uf;
   els.neighborhoodTrigger.disabled = state.loading || !state.uf;
   updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
   updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
+  updateTrigger(els.typeTrigger, state.tipos, "Todos", "selecionados");
 }
 
 function renderProperties(properties) {
@@ -284,6 +355,14 @@ function renderProperties(properties) {
 
     node.querySelector(".uf-badge").textContent = property.uf || payload.UF || "";
     node.querySelector(".discount-badge").textContent = payload.Desconto ? `${payload.Desconto}%` : "";
+
+    const tipo = property.tipo_imovel || payload.tipo_imovel;
+    const typeBadge = node.querySelector(".type-badge");
+    if (tipo) {
+      typeBadge.textContent = tipo;
+      typeBadge.hidden = false;
+    }
+
     node.querySelector(".city").textContent = payload.Cidade || "-";
     node.querySelector(".modality").textContent = payload["Modalidade de venda"] || "-";
     node.querySelector(".neighborhood").textContent = payload.Bairro || "-";
@@ -291,6 +370,10 @@ function renderProperties(properties) {
     node.querySelector(".valuation").textContent = `R$ ${payload["Valor de avaliação"] || payload["Valor de avaliaÃ§Ã£o"] || "-"}`;
     node.querySelector(".price").textContent = `R$ ${payload["Preço"] || payload["PreÃ§o"] || "-"}`;
     node.querySelector(".description").textContent = payload["Descrição"] || payload["DescriÃ§Ã£o"] || "";
+
+    const detailBtn = node.querySelector(".detail-button");
+    detailBtn.dataset.numero = numero;
+    detailBtn.addEventListener("click", () => openDetail(numero, payload));
 
     const link = node.querySelector(".doc-link");
     link.href = payload["Link de acesso"] || "#";
@@ -304,7 +387,7 @@ async function loadStatsAndProperties() {
     const [stats, filteredStats, properties] = await Promise.all([
       api("/stats"),
       api("/stats/filtered", selectedParams()),
-      api("/properties", { ...selectedParams(), limit: 48 })
+      api("/properties", { ...selectedParams(), limit: 48 }),
     ]);
 
     els.statsTotal.textContent = formatNumber(stats.total);
@@ -312,6 +395,16 @@ async function loadStatsAndProperties() {
     els.statsAverage.textContent = formatMoney(filteredStats.average);
     els.statsMedian.textContent = formatMoney(filteredStats.median);
     els.lastUpdated.textContent = stats.last_updated || "-";
+
+    if (stats.em_demo) {
+      els.demoBanner.hidden = false;
+      if (state.session && state.session.assinatura) {
+        els.demoBanner.hidden = true;
+      }
+    } else {
+      els.demoBanner.hidden = true;
+    }
+
     renderProperties(properties);
   } catch (error) {
     setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
@@ -327,10 +420,252 @@ async function search() {
   }
 }
 
+// ---------- Sessao / auth ----------
+
+function isAssinante() {
+  return !!(state.session && state.session.autenticado && state.session.assinatura && state.session.assinatura.ativa);
+}
+
+function renderAccount() {
+  if (!state.session || !state.session.autenticado) {
+    els.accountBtn.textContent = "Entrar";
+    els.accountBtn.onclick = () => openAuth("login");
+    els.alertasBtn.hidden = true;
+    return;
+  }
+  els.accountBtn.textContent = `Sair (${state.session.email})`;
+  els.accountBtn.onclick = () => logout();
+  els.alertasBtn.hidden = !isAssinante();
+}
+
+async function loadSession() {
+  try {
+    state.session = await api("/me");
+  } catch (e) {
+    state.session = null;
+  }
+  renderAccount();
+}
+
+function openAuth(mode) {
+  state.authMode = mode;
+  setAuthMode(mode);
+  els.authError.hidden = true;
+  els.authModal.hidden = false;
+}
+
+function setAuthMode(mode) {
+  const isLogin = mode === "login";
+  els.authTitle.textContent = isLogin ? "Entrar" : "Criar conta";
+  els.authSubmit.textContent = isLogin ? "Entrar" : "Criar conta";
+  els.tabLogin.classList.toggle("active", isLogin);
+  els.tabRegister.classList.toggle("active", !isLogin);
+  els.authPassword.autocomplete = isLogin ? "current-password" : "new-password";
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const email = els.authEmail.value.trim();
+  const senha = els.authPassword.value;
+  els.authError.hidden = true;
+  try {
+    if (state.authMode === "login") {
+      await api("/login", {}, { method: "POST", body: { email, senha } });
+    } else {
+      await api("/registro", {}, { method: "POST", body: { email, senha } });
+    }
+    els.authModal.hidden = true;
+    els.authForm.reset();
+    await loadSession();
+    await search();
+  } catch (error) {
+    els.authError.textContent = error.message;
+    els.authError.hidden = false;
+  }
+}
+
+async function logout() {
+  try {
+    await api("/logout", {}, { method: "POST" });
+  } catch (e) {}
+  state.session = null;
+  renderAccount();
+  await search();
+}
+
+// ---------- Alertas ----------
+
+function parseList(value) {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function fillAlertUfOptions() {
+  els.alertUf.innerHTML = '<option value="">Todas</option>';
+  state.ufOptions.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.value;
+    opt.textContent = item.label;
+    els.alertUf.appendChild(opt);
+  });
+}
+
+function renderAlertas(list) {
+  els.alertsList.innerHTML = "";
+  if (!list.length) {
+    els.alertsList.innerHTML = '<p class="modal-sub">Nenhum alerta configurado.</p>';
+    return;
+  }
+  list.forEach((pref) => {
+    const row = document.createElement("div");
+    row.className = "alert-row";
+    const chips = [
+      pref.uf ? `UF: ${pref.uf}` : "UF: todas",
+      pref.cidades.length ? `Cidades: ${pref.cidades.join(", ")}` : null,
+      pref.bairros.length ? `Bairros: ${pref.bairros.join(", ")}` : null,
+      pref.modalidades.length ? `Modalidades: ${pref.modalidades.join(", ")}` : null,
+    ].filter(Boolean);
+    const canais = [];
+    if (pref.canal_email) canais.push("e-mail");
+    if (pref.canal_whatsapp) canais.push("WhatsApp");
+    row.innerHTML = `<div class="alert-row-info">${chips.join(" · ")}</div><div class="alert-row-can">${canais.join(" / ") || "sem canal"}</div>`;
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "alert-delete";
+    del.textContent = "Remover";
+    del.addEventListener("click", async () => {
+      try {
+        await api(`/preferencias/${pref.id}`, {}, { method: "DELETE" });
+        await openAlertas();
+      } catch (e) {
+        showAlertsStatus(e.message, true);
+      }
+    });
+    row.appendChild(del);
+    els.alertsList.appendChild(row);
+  });
+}
+
+function showAlertsStatus(msg, isError) {
+  els.alertsStatus.hidden = false;
+  els.alertsStatus.textContent = msg;
+  els.alertsStatus.className = "alerts-status " + (isError ? "error" : "ok");
+}
+
+async function openAlertas() {
+  els.alertsStatus.hidden = true;
+  els.alertForm.reset();
+  els.alertEmail.checked = true;
+  els.alertWhatsapp.checked = false;
+  fillAlertUfOptions();
+  try {
+    const data = await api("/me");
+    renderAlertas(data.preferencias || []);
+    els.alertsModal.hidden = false;
+  } catch (e) {
+    showAlertsStatus("Nao foi possivel carregar seus alertas.", true);
+  }
+}
+
+async function handleAlertSubmit(event) {
+  event.preventDefault();
+  const body = {
+    uf: els.alertUf.value,
+    cidades: parseList(els.alertCidades.value),
+    bairros: parseList(els.alertBairros.value),
+    modalidades: parseList(els.alertModalidades.value),
+    canal_email: els.alertEmail.checked,
+    canal_whatsapp: els.alertWhatsapp.checked,
+    contato_whatsapp: els.alertWhatsappNum.value.trim(),
+  };
+  try {
+    await api("/preferencias", {}, { method: "POST", body });
+    showAlertsStatus("Alerta salvo com sucesso.", false);
+    els.alertForm.reset();
+    els.alertEmail.checked = true;
+    const data = await api("/me");
+    renderAlertas(data.preferencias || []);
+  } catch (e) {
+    showAlertsStatus(e.message, true);
+  }
+}
+
+// ---------- Detalhe enriquecido ----------
+
+function openDetail(numero, payload) {
+  els.detailModal.hidden = false;
+  els.detailLoading.hidden = false;
+  els.detailBody.hidden = true;
+  els.detailBody.innerHTML = "";
+  els.detailTitle.textContent = `Detalhes — ${numero}`;
+  api(`/property/${numero}`)
+    .then((data) => {
+      els.detailLoading.hidden = true;
+      els.detailBody.hidden = false;
+      els.detailBody.innerHTML = renderDetail(data, payload);
+    })
+    .catch((error) => {
+      els.detailLoading.hidden = true;
+      els.detailBody.hidden = false;
+      els.detailBody.innerHTML = `<p class="modal-sub">Nao foi possivel carregar os detalhes enriquecidos: ${error.message}</p>`;
+    });
+}
+
+function renderDetail(data, payload) {
+  const d = data.dados_enriquecidos || {};
+  const rows = [
+    ["Cidade", payload.Cidade],
+    ["Bairro", payload.Bairro],
+    ["Endereco", payload["Endereço"] || payload["EndereÃ§o"]],
+    ["Tipo de imovel", d.tipo_imovel || payload.tipo_imovel],
+    ["Quartos", d.quartos],
+    ["Garagem", d.garagem],
+    ["Area privativa", d.area_privativa],
+    ["Area do terreno", d.area_terreno],
+    ["Matricula", d.matricula],
+    ["Comarca", d.comarca],
+    ["Oficio", d.oficio],
+    ["Inscricao imobiliaria", d.inscricao_imobiliaria],
+    ["Valor de avaliacao", payload["Valor de avaliação"] || payload["Valor de avaliaÃ§Ã£o"]],
+    ["Preco", payload["Preço"] || payload["PreÃ§o"]],
+    ["Modalidade", payload["Modalidade de venda"]],
+  ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  let html = '<div class="detail-grid">';
+  rows.forEach(([label, value]) => {
+    html += `<div class="detail-item"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`;
+  });
+  html += "</div>";
+
+  if (d.formas_pagamento) {
+    html += `<div class="detail-section"><h3>Formas de pagamento</h3><p>${escapeHtml(d.formas_pagamento)}</p></div>`;
+  }
+  if (d.regras_despesas) {
+    html += `<div class="detail-section"><h3>Regras do certame (despesas)</h3><p>${escapeHtml(d.regras_despesas)}</p></div>`;
+  }
+
+  if (payload["Link de acesso"]) {
+    html += `<div class="detail-section"><a class="doc-link inline" href="${escapeHtml(payload["Link de acesso"])}" target="_blank" rel="noopener noreferrer">Ver documentacao na Caixa</a></div>`;
+  }
+
+  return html;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function bindEvents() {
   setupPanel(els.cityTrigger, els.cityPanel);
   setupPanel(els.neighborhoodTrigger, els.neighborhoodPanel);
   setupPanel(els.modalityTrigger, els.modalityPanel);
+  setupPanel(els.typeTrigger, els.typePanel);
 
   document.addEventListener("click", closePanels);
 
@@ -353,6 +688,7 @@ function bindEvents() {
     state.cities = [];
     state.neighborhoods = [];
     state.modalidades = [];
+    state.tipos = [];
     state.sort = "price_asc";
     await loadFilters();
     await search();
@@ -362,12 +698,32 @@ function bindEvents() {
   els.toggleFilters.addEventListener("click", () => {
     els.filterGrid.hidden = !els.filterGrid.hidden;
   });
+
+  // Auth
+  els.accountBtn.addEventListener("click", () => {});
+  els.tabLogin.addEventListener("click", () => setAuthMode("login"));
+  els.tabRegister.addEventListener("click", () => setAuthMode("register"));
+  els.authClose.addEventListener("click", () => (els.authModal.hidden = true));
+  els.authModal.addEventListener("click", (e) => { if (e.target === els.authModal) els.authModal.hidden = true; });
+  els.authForm.addEventListener("submit", handleAuthSubmit);
+  els.demoCta.addEventListener("click", () => openAuth("register"));
+
+  // Alertas
+  els.alertasBtn.addEventListener("click", openAlertas);
+  els.alertsClose.addEventListener("click", () => (els.alertsModal.hidden = true));
+  els.alertsModal.addEventListener("click", (e) => { if (e.target === els.alertsModal) els.alertsModal.hidden = true; });
+  els.alertForm.addEventListener("submit", handleAlertSubmit);
+
+  // Detalhe
+  els.detailClose.addEventListener("click", () => (els.detailModal.hidden = true));
+  els.detailModal.addEventListener("click", (e) => { if (e.target === els.detailModal) els.detailModal.hidden = true; });
 }
 
 async function init() {
   setLoading(true);
   setStatus("Carregando filtros e estatisticas...");
   bindEvents();
+  await loadSession();
   try {
     await loadFilters();
     await search();

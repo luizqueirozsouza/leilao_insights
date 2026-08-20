@@ -6,7 +6,10 @@ from django.http import JsonResponse
 from django.db import models, connection
 from django.core.paginator import Paginator
 from django.core.cache import cache
+from django.utils import timezone
 from .models import Auction
+from .access import aplicar_modo_demo, ver_amostra, usuario_tem_assinatura_ativa
+from .caixa_detail import buscar_detalhe
 
 
 def _clean_list(values):
@@ -23,12 +26,13 @@ def _get_filters(request):
     cidade = _clean_list(request.GET.getlist('cidade'))
     bairro = _clean_list(request.GET.getlist('bairro'))
     modalidade = _clean_list(request.GET.getlist('modalidade'))
+    tipo = _clean_list(request.GET.getlist('tipo'))
     sort = request.GET.get('sort', 'price_asc').strip()
     page = request.GET.get('page', 1)
-    return uf, cidade, bairro, modalidade, sort, page
+    return uf, cidade, bairro, modalidade, tipo, sort, page
 
 
-def _build_queryset(uf, cidade, bairro, modalidade):
+def _build_queryset(uf, cidade, bairro, modalidade, tipo=None):
     qs = Auction.objects.all()
 
     if uf:
@@ -39,6 +43,8 @@ def _build_queryset(uf, cidade, bairro, modalidade):
         qs = qs.filter(bairro__in=bairro)
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
+    if tipo:
+        qs = qs.filter(tipo_imovel__in=tipo)
 
     return qs
 
@@ -73,17 +79,23 @@ def _cache_part(values):
     return ','.join(sorted(values or [])) or 'all'
 
 
-def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None):
+def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, request=None):
     cidade = cidade or []
     bairro = bairro or []
     modalidade = modalidade or []
 
-    ufs = cache.get('filter_ufs')
-    if ufs is None:
-        ufs = _count_options(Auction.objects.all(), 'uf')
-        cache.set('filter_ufs', ufs, 600)
+    base_qs = Auction.objects.all()
+    if request is not None:
+        base_qs, _ = aplicar_modo_demo(base_qs, request)
 
-    cities_qs = Auction.objects.all()
+    ufs = _cached_count_options(
+        f"filter_ufs:{'demo' if request is not None and ver_amostra(request) else 'full'}",
+        base_qs,
+        'uf',
+        600,
+    )
+
+    cities_qs = base_qs
     if uf:
         cities_qs = cities_qs.filter(uf=uf)
     if modalidade:
@@ -94,7 +106,7 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None):
         'cidade',
     )
 
-    neighborhoods_qs = Auction.objects.all()
+    neighborhoods_qs = base_qs
     if uf:
         neighborhoods_qs = neighborhoods_qs.filter(uf=uf)
     if cidade:
@@ -107,7 +119,7 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None):
         'bairro',
     )
 
-    modalidades_qs = Auction.objects.all()
+    modalidades_qs = base_qs
     if uf:
         modalidades_qs = modalidades_qs.filter(uf=uf)
     if cidade:
@@ -120,7 +132,9 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None):
         'modalidade',
     )
 
-    return ufs, cities, neighborhoods, modalidades
+    tipos = _count_options(base_qs, 'tipo_imovel')
+
+    return ufs, cities, neighborhoods, modalidades, tipos
 
 
 def _get_stats(qs, has_filters):
@@ -187,13 +201,14 @@ def _parse_desc(desc):
 
 
 def auction_list(request):
-    uf, cidade, bairro, modalidade, sort, page = _get_filters(request)
+    uf, cidade, bairro, modalidade, tipo, sort, page = _get_filters(request)
 
-    auctions = _build_queryset(uf, cidade, bairro, modalidade)
+    auctions = _build_queryset(uf, cidade, bairro, modalidade, tipo)
+    auctions, em_demo = aplicar_modo_demo(auctions, request)
     auctions = auctions.only(
         'numero_imovel', 'uf', 'cidade', 'bairro', 'endereco',
         'preco', 'valor_avaliacao', 'desconto', 'modalidade', 'link',
-        'descricao', 'last_seen',
+        'descricao', 'last_seen', 'tipo_imovel',
     )
 
     if sort == 'price_desc':
@@ -204,9 +219,11 @@ def auction_list(request):
     paginator = Paginator(auctions, 24)
     page_obj = paginator.get_page(page)
 
-    ufs, cidades, bairros, all_modalidades = _get_filter_options(uf, cidade, bairro, modalidade)
+    ufs, cidades, bairros, all_modalidades, all_tipos = _get_filter_options(
+        uf, cidade, bairro, modalidade, request
+    )
 
-    has_filters = bool(uf or cidade or bairro or modalidade)
+    has_filters = bool(uf or cidade or bairro or modalidade or tipo)
     stats = _get_stats(auctions, has_filters)
 
     parsed_auctions = []
@@ -223,12 +240,17 @@ def auction_list(request):
         'cidades': cidades,
         'bairros': bairros,
         'all_modalidades': all_modalidades,
+        'all_tipos': all_tipos,
         'stats': stats,
+        'em_demo': em_demo,
+        'esta_autenticado': request.user.is_authenticated,
+        'tem_assinatura': usuario_tem_assinatura_ativa(request.user),
         'selected': {
             'uf': uf,
             'cidade': cidade,
             'bairro': bairro,
             'modalidade': modalidade,
+            'tipo': tipo,
             'sort': sort,
         },
     }
@@ -241,6 +263,7 @@ def api_cidades(request):
     if not uf:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf)
+    qs, _ = aplicar_modo_demo(qs, request)
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     cidades = _count_options(qs, 'cidade')
@@ -254,6 +277,7 @@ def api_bairros(request):
     if not uf or not cidade:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf, cidade__in=cidade)
+    qs, _ = aplicar_modo_demo(qs, request)
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     bairros = _count_options(qs, 'bairro')
@@ -261,21 +285,19 @@ def api_bairros(request):
 
 
 def api_stats(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT COUNT(*), COUNT(DISTINCT uf), COUNT(DISTINCT cidade), MAX(last_seen)
-            FROM current_imoveis
-        """)
-        row = cursor.fetchone()
-    
-    last_updated = row[3].strftime('%d/%m/%Y') if row[3] else None
-    
+    base_qs = Auction.objects.all()
+    base_qs, em_demo = aplicar_modo_demo(base_qs, request)
+
     stats = {
-        'total': row[0],
-        'ufs': row[1],
-        'cities': row[2],
-        'last_updated': last_updated,
+        'total': base_qs.count(),
+        'ufs': base_qs.values('uf').distinct().count(),
+        'cities': base_qs.values('cidade', 'uf').distinct().count(),
+        'last_updated': None,
+        'em_demo': em_demo,
     }
+    last = base_qs.order_by('-last_seen').values_list('last_seen', flat=True).first()
+    if last:
+        stats['last_updated'] = last.strftime('%d/%m/%Y')
     return JsonResponse(stats)
 
 
@@ -285,8 +307,8 @@ def api_filters(request):
     neighborhood = _clean_list(request.GET.getlist('neighborhood'))
     modalidade = _clean_list(request.GET.getlist('modalidade'))
 
-    ufs, cities, neighborhoods, modalidades = _get_filter_options(
-        uf, city, neighborhood, modalidade
+    ufs, cities, neighborhoods, modalidades, tipos = _get_filter_options(
+        uf, city, neighborhood, modalidade, request
     )
 
     return JsonResponse({
@@ -294,6 +316,7 @@ def api_filters(request):
         'cities': cities,
         'neighborhoods': neighborhoods,
         'modalidades': modalidades,
+        'tipos': tipos,
     })
 
 
@@ -302,8 +325,10 @@ def api_stats_filtered(request):
     city = _clean_list(request.GET.getlist('city'))
     neighborhood = _clean_list(request.GET.getlist('neighborhood'))
     modalidade = _clean_list(request.GET.getlist('modalidade'))
+    tipo = _clean_list(request.GET.getlist('tipo'))
 
-    qs = _build_queryset(uf, city, neighborhood, modalidade)
+    qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
+    qs, _ = aplicar_modo_demo(qs, request)
 
     agg = qs.aggregate(
         average=models.Avg('valor_avaliacao'),
@@ -320,17 +345,19 @@ def api_properties(request):
     city = _clean_list(request.GET.getlist('city'))
     neighborhood = _clean_list(request.GET.getlist('neighborhood'))
     modalidade = _clean_list(request.GET.getlist('modalidade'))
+    tipo = _clean_list(request.GET.getlist('tipo'))
     sort = request.GET.get('sort', 'price_asc').strip()
     limit = min(int(request.GET.get('limit', 24)), 100)
 
-    qs = _build_queryset(uf, city, neighborhood, modalidade)
+    qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
+    qs, em_demo = aplicar_modo_demo(qs, request)
 
     if sort == 'price_desc':
         qs = qs.order_by('-preco')
     else:
         qs = qs.order_by('preco')
 
-    qs = qs.only('uf', 'numero_imovel', 'payload_json')[:limit]
+    qs = qs.only('uf', 'numero_imovel', 'tipo_imovel', 'payload_json')[:limit]
 
     results = []
     for a in qs:
@@ -340,6 +367,70 @@ def api_properties(request):
                 payload = json.loads(payload)
             except Exception:
                 payload = {}
-        results.append({'uf': a.uf, 'numero_imovel': a.numero_imovel, 'payload': payload})
+        results.append({
+            'uf': a.uf,
+            'numero_imovel': a.numero_imovel,
+            'tipo_imovel': a.tipo_imovel,
+            'payload': payload,
+        })
 
+    if request.GET.get('_include_demo') == '1':
+        return JsonResponse({'em_demo': em_demo, 'items': results}, safe=False)
     return JsonResponse(results, safe=False)
+
+
+def _refinar_tipo(tipo_texto):
+    from .models import TipoImovel
+    if not tipo_texto:
+        return None
+    t = str(tipo_texto).lower()
+    if 'apart' in t or 'apto' in t or 'flat' in t or 'cobertura' in t or 'kitnet' in t:
+        return TipoImovel.APARTAMENTO
+    if 'terreno' in t or 'lote' in t or 'gleba' in t or 'chácara' in t or 'sítio' in t or 'rural' in t:
+        return TipoImovel.TERRENO
+    if 'casa' in t or 'sobrado' in t or 'vivenda' in t:
+        return TipoImovel.CASA
+    return None
+
+
+def api_property(request, numero):
+    auction = Auction.objects.filter(numero_imovel=numero).first()
+    if not auction:
+        return JsonResponse({'error': 'Imóvel não encontrado'}, status=404)
+
+    if auction.dados_enriquecidos:
+        return JsonResponse({
+            'numero_imovel': auction.numero_imovel,
+            'uf': auction.uf,
+            'enriquecido': True,
+            'dados_enriquecidos': auction.dados_enriquecidos,
+            'atualizado_em': auction.dados_enriquecidos_at,
+        })
+
+    try:
+        dados = buscar_detalhe(auction.link)
+    except Exception as exc:
+        return JsonResponse({
+            'numero_imovel': auction.numero_imovel,
+            'uf': auction.uf,
+            'enriquecido': False,
+            'indisponivel': True,
+            'erro': str(exc)[:200],
+        }, status=503)
+
+    auction.dados_enriquecidos = dados
+    auction.dados_enriquecidos_at = timezone.now()
+
+    tipo_refinado = _refinar_tipo(dados.get('tipo_imovel'))
+    if tipo_refinado and auction.tipo_imovel in (None, 'outro'):
+        auction.tipo_imovel = tipo_refinado
+
+    auction.save(update_fields=['dados_enriquecidos', 'dados_enriquecidos_at', 'tipo_imovel'])
+
+    return JsonResponse({
+        'numero_imovel': auction.numero_imovel,
+        'uf': auction.uf,
+        'enriquecido': True,
+        'dados_enriquecidos': dados,
+        'atualizado_em': auction.dados_enriquecidos_at,
+    })

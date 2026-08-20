@@ -24,6 +24,30 @@ from pipeline.notify_telegram import send_telegram_message
 load_dotenv()
 
 
+def _notify_subscribers(dt: str, logger: logging.Logger) -> None:
+    manage_py = ROOT_DIR / "backend_django" / "manage.py"
+    if not manage_py.exists():
+        logger.info("manage.py nao encontrado; pulando notificacoes de assinantes.")
+        return
+    import subprocess
+
+    cmd = [
+        sys.executable,
+        str(manage_py),
+        "notify_subscribers",
+        "--date",
+        dt,
+    ]
+    try:
+        result = subprocess.run(cmd, cwd=str(ROOT_DIR / "backend_django"), capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            logger.warning("notify_subscribers falhou (rc=%s): %s", result.returncode, result.stderr[-800:])
+        else:
+            logger.info("notify_subscribers concluido: %s", result.stdout.strip())
+    except Exception as exc:
+        logger.warning("Erro ao executar notify_subscribers: %s", exc)
+
+
 def _resolve_run_date(explicit_date: str | None) -> str:
     if explicit_date:
         return explicit_date
@@ -132,6 +156,8 @@ def main() -> int:
 
         summary = ingest_day_dlt(dt, logger, delete_csv=not args.keep_csv)
         logger.info("Ingestao DLT concluida: %s", json.dumps(summary, ensure_ascii=False))
+
+        _notify_subscribers(dt, logger)
 
         elapsed = time.perf_counter() - started_at
         if not args.skip_telegram:

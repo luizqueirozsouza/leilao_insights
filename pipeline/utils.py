@@ -273,6 +273,28 @@ def clean_money(value) -> Decimal | None:
         return None
 
 
+TIPO_PALAVRAS = {
+    "apartamento": {"apartamento", "apto", "apart.", "flat", "cobertura", "kitnet", "studio", "estúdio", "loft"},
+    "casa": {"casa", "sobrado", "vivenda", "chalé", "chale", "bangalô", "bangalo", "residência", "residencia"},
+    "terreno": {"terreno", "lote", "lotes", "gleba", "chácara", "chacara", "sítio", "sitio", "fazenda", "área", "area rural", "rural"},
+}
+
+
+def classify_tipo(descricao: str | None, endereco: str | None = None) -> str:
+    texto = " ".join(
+        t for t in (str(descricao or ""), str(endereco or "")) if t
+    )
+    texto = texto.lower()
+    if not texto:
+        return "outro"
+
+    for tipo, palavras in TIPO_PALAVRAS.items():
+        for palavra in palavras:
+            if re.search(rf"\b{re.escape(palavra)}", texto):
+                return tipo
+    return "outro"
+
+
 def build_index_columns(row: pd.Series) -> dict:
     preco = clean_money(row.get("Preço"))
     valor_avaliacao = clean_money(row.get("Valor de avaliação"))
@@ -293,6 +315,7 @@ def build_index_columns(row: pd.Series) -> dict:
         "descricao": row.get("Descrição"),
         "modalidade": row.get("Modalidade de venda"),
         "link": row.get("Link de acesso"),
+        "tipo_imovel": classify_tipo(row.get("Descrição"), row.get("Endereço")),
     }
 
 

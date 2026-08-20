@@ -283,6 +283,7 @@ def ingest_day_dlt(dt: str, logger: logging.Logger, delete_csv: bool = False) ->
                 "descricao",
                 "modalidade",
                 "link",
+                "tipo_imovel",
             ]
         ].values.tolist()
 
@@ -292,7 +293,7 @@ def ingest_day_dlt(dt: str, logger: logging.Logger, delete_csv: bool = False) ->
             INSERT INTO current_imoveis (
                 uf, numero_imovel, payload_json, fp, last_seen, source_file,
                 cidade, bairro, endereco, preco, valor_avaliacao, desconto,
-                descricao, modalidade, link
+                descricao, modalidade, link, tipo_imovel
             )
             VALUES %s
             ON CONFLICT (uf, numero_imovel)
@@ -309,10 +310,11 @@ def ingest_day_dlt(dt: str, logger: logging.Logger, delete_csv: bool = False) ->
                 desconto = EXCLUDED.desconto,
                 descricao = EXCLUDED.descricao,
                 modalidade = EXCLUDED.modalidade,
-                link = EXCLUDED.link
+                link = EXCLUDED.link,
+                tipo_imovel = EXCLUDED.tipo_imovel
             """,
             current_rows,
-            template="(%s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            template="(%s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             page_size=1000,
         )
         upsert_count = len(current_rows)
