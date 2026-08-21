@@ -414,6 +414,9 @@ function renderProperties(properties) {
     detailBtn.dataset.numero = numero;
     detailBtn.addEventListener("click", () => openDetail(numero, payload));
 
+    const simulateBtn = node.querySelector(".simulate-button");
+    simulateBtn.addEventListener("click", () => openCalculator({ dados_enriquecidos: {} }, payload));
+
     const link = node.querySelector(".doc-link");
     link.href = payload["Link de acesso"] || "#";
     els.properties.appendChild(node);
