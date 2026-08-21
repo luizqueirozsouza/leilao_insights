@@ -98,6 +98,15 @@ const els = {
   calcSale: document.querySelector("#calc-sale"),
   calcArea: document.querySelector("#calc-area"),
   calcSalePerArea: document.querySelector("#calc-sale-per-area"),
+  calcFinancingEnabled: document.querySelector("#calc-financing-enabled"),
+  financingFields: document.querySelector("#financing-fields"),
+  financingSummary: document.querySelector("#financing-summary"),
+  calcEntry: document.querySelector("#calc-entry"),
+  calcInstallment: document.querySelector("#calc-installment"),
+  calcMonths: document.querySelector("#calc-months"),
+  calcDebt: document.querySelector("#calc-debt"),
+  calcInstallmentsTotal: document.querySelector("#calc-installments-total"),
+  calcTotalLabel: document.querySelector("#calc-total-label"),
   acquisitionCosts: document.querySelector("#acquisition-costs"),
   saleCosts: document.querySelector("#sale-costs"),
   calcTotal: document.querySelector("#calc-total"),
@@ -815,6 +824,13 @@ function recalculateCalculator() {
   state.calculator.auction = Math.max(0, parseMoneyValue(els.calcAuction.value));
   state.calculator.sale = Math.max(0, parseMoneyValue(els.calcSale.value));
   state.calculator.area = Math.max(0, parseMoneyValue(els.calcArea.value));
+  state.calculator.financing = {
+    enabled: els.calcFinancingEnabled.checked,
+    entry: Math.max(0, parseMoneyValue(els.calcEntry.value)),
+    installment: Math.max(0, parseMoneyValue(els.calcInstallment.value)),
+    months: Math.floor(Math.max(0, parseMoneyValue(els.calcMonths.value))),
+    debt: Math.max(0, parseMoneyValue(els.calcDebt.value)),
+  };
 
   const acquisition = Array.from(els.acquisitionCosts.querySelectorAll(".cost-row"));
   const sale = Array.from(els.saleCosts.querySelectorAll(".cost-row"));
@@ -828,8 +844,12 @@ function recalculateCalculator() {
     row.querySelector("[data-cost-result]").textContent = formatMoney(amount);
     return total + amount;
   }, 0);
-  const investment = state.calculator.auction + acquisitionTotal;
-  const profit = state.calculator.sale - investment - saleTotal;
+  const financing = state.calculator.financing;
+  const installmentsPaid = financing.enabled ? financing.installment * financing.months : 0;
+  const investment = financing.enabled
+    ? financing.entry + acquisitionTotal + installmentsPaid
+    : state.calculator.auction + acquisitionTotal;
+  const profit = state.calculator.sale - investment - saleTotal - (financing.enabled ? financing.debt : 0);
   const margin = state.calculator.sale ? (profit / state.calculator.sale) * 100 : null;
   const roi = investment ? (profit / investment) * 100 : null;
   const salePerArea = state.calculator.sale && state.calculator.area
@@ -843,6 +863,8 @@ function recalculateCalculator() {
   els.calcMargin.textContent = margin === null ? "-" : `${margin.toFixed(2).replace(".", ",")}%`;
   els.calcRoi.textContent = roi === null ? "-" : `${roi.toFixed(2).replace(".", ",")}%`;
   els.calcSalePerArea.textContent = salePerArea === null ? "-" : `${formatMoney(salePerArea)} / m²`;
+  els.calcTotalLabel.textContent = financing.enabled ? "Capital investido" : "Investimento total";
+  els.calcInstallmentsTotal.textContent = formatMoney(installmentsPaid);
 }
 
 function openCalculator(data, payload) {
@@ -855,12 +877,20 @@ function openCalculator(data, payload) {
     auction: parseMoneyValue(auction),
     sale: 0,
     area: parseMoneyValue(area),
+    financing: { enabled: false, entry: 0, installment: 0, months: 0, debt: 0 },
   };
   els.calculatorSource.textContent = `${payload.Cidade || "Imóvel"}${payload.Bairro ? ` · ${payload.Bairro}` : ""}`;
   els.calcValuation.value = state.calculator.valuation || "";
   els.calcAuction.value = state.calculator.auction || "";
   els.calcSale.value = "";
   els.calcArea.value = state.calculator.area || "";
+  els.calcFinancingEnabled.checked = false;
+  els.calcEntry.value = "";
+  els.calcInstallment.value = "";
+  els.calcMonths.value = "";
+  els.calcDebt.value = "";
+  els.financingFields.hidden = true;
+  els.financingSummary.hidden = true;
   renderCalculatorCostRows();
   els.calculatorModal.hidden = false;
   recalculateCalculator();
@@ -1022,6 +1052,15 @@ function bindEvents() {
   // Calculadora publica
   [els.calcValuation, els.calcAuction, els.calcSale, els.calcArea].forEach((input) => {
     input.addEventListener("input", recalculateCalculator);
+  });
+  [els.calcEntry, els.calcInstallment, els.calcMonths, els.calcDebt].forEach((input) => {
+    input.addEventListener("input", recalculateCalculator);
+  });
+  els.calcFinancingEnabled.addEventListener("change", () => {
+    const enabled = els.calcFinancingEnabled.checked;
+    els.financingFields.hidden = !enabled;
+    els.financingSummary.hidden = !enabled;
+    recalculateCalculator();
   });
   els.calculatorClose.addEventListener("click", closeCalculator);
   els.calculatorModal.addEventListener("click", (e) => {

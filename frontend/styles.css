@@ -970,6 +970,60 @@ input {
   font-weight: 800;
 }
 
+.financing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.financing-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--blue);
+}
+
+.calculator-help {
+  margin: 7px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.financing-fields[hidden],
+.financing-summary[hidden] {
+  display: none;
+}
+
+.financing-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+}
+
+.financing-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.financing-summary strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .cost-list {
   display: grid;
   gap: 8px;

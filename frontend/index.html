@@ -264,6 +264,20 @@
           <div class="calculator-derived"><span>Valor estimado por m²</span><strong id="calc-sale-per-area">-</strong></div>
         </section>
 
+        <section class="calculator-section calculator-financing">
+          <label class="financing-toggle"><input id="calc-financing-enabled" type="checkbox" /> <span>Considerar financiamento</span></label>
+          <p class="calculator-help">Use esta opção para estimar o capital próprio investido até a venda do imóvel.</p>
+          <div class="calculator-grid financing-fields" id="financing-fields" hidden>
+            <label class="calculator-field"><span>Valor da entrada</span><input id="calc-entry" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Parcela mensal</span><input id="calc-installment" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Meses até a venda</span><input id="calc-months" type="number" min="0" step="1" /></label>
+            <label class="calculator-field"><span>Saldo devedor na venda</span><input id="calc-debt" type="number" min="0" step="0.01" /></label>
+          </div>
+          <div class="financing-summary" id="financing-summary" hidden>
+            <span>Total pago em parcelas</span><strong id="calc-installments-total">R$ 0,00</strong>
+          </div>
+        </section>
+
         <section class="calculator-section">
           <div class="calculator-section-head"><h3>Custos de aquisição</h3><span>Incluídos no investimento</span></div>
           <div class="cost-list" id="acquisition-costs"></div>
@@ -275,7 +289,7 @@
         </section>
 
         <section class="calculator-summary" aria-live="polite">
-          <div><span>Investimento total</span><strong id="calc-total">-</strong></div>
+          <div><span id="calc-total-label">Investimento total</span><strong id="calc-total">-</strong></div>
           <div><span>Custos da venda</span><strong id="calc-sale-costs">-</strong></div>
           <div><span>Resultado estimado</span><strong id="calc-profit">-</strong></div>
           <div><span>Margem</span><strong id="calc-margin">-</strong></div>
