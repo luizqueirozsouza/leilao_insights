@@ -12,6 +12,13 @@ const state = {
   searchTimer: null,
   session: null,
   authMode: "login",
+  alertFilters: {
+    uf: "",
+    cities: [],
+    neighborhoods: [],
+    modalidades: [],
+    tipos: [],
+  },
 };
 
 function csrfToken() {
@@ -64,9 +71,14 @@ const els = {
   alertsStatus: document.querySelector("#alerts-status"),
   alertForm: document.querySelector("#alert-form"),
   alertUf: document.querySelector("#alert-uf"),
-  alertCidades: document.querySelector("#alert-cidades"),
-  alertBairros: document.querySelector("#alert-bairros"),
-  alertModalidades: document.querySelector("#alert-modalidades"),
+  alertCityTrigger: document.querySelector("#alert-city-trigger"),
+  alertCityPanel: document.querySelector("#alert-city-panel"),
+  alertNeighborhoodTrigger: document.querySelector("#alert-neighborhood-trigger"),
+  alertNeighborhoodPanel: document.querySelector("#alert-neighborhood-panel"),
+  alertModalityTrigger: document.querySelector("#alert-modality-trigger"),
+  alertModalityPanel: document.querySelector("#alert-modality-panel"),
+  alertTypeTrigger: document.querySelector("#alert-type-trigger"),
+  alertTypePanel: document.querySelector("#alert-type-panel"),
   alertEmail: document.querySelector("#alert-email"),
   alertWhatsapp: document.querySelector("#alert-whatsapp"),
   alertWhatsappNum: document.querySelector("#alert-whatsapp-num"),
@@ -302,6 +314,8 @@ async function loadFilters() {
   renderOptions(els.cityPanel, "city", data.cities, state.cities, async () => {
     state.cities = readChecked(els.cityPanel);
     state.neighborhoods = [];
+    state.modalidades = [];
+    state.tipos = [];
     updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
     await loadFilters();
     scheduleSearch();
@@ -309,6 +323,8 @@ async function loadFilters() {
 
   renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, async () => {
     state.neighborhoods = readChecked(els.neighborhoodPanel);
+    state.modalidades = [];
+    state.tipos = [];
     updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
     await loadFilters();
     scheduleSearch();
@@ -316,6 +332,7 @@ async function loadFilters() {
 
   renderOptions(els.modalityPanel, "modalidade", data.modalidades, state.modalidades, async () => {
     state.modalidades = readChecked(els.modalityPanel);
+    state.tipos = [];
     updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
     await loadFilters();
     scheduleSearch();
@@ -330,6 +347,8 @@ async function loadFilters() {
 
   els.cityTrigger.disabled = state.loading || !state.uf;
   els.neighborhoodTrigger.disabled = state.loading || !state.uf;
+  els.neighborhoodTrigger.disabled = state.loading || !state.cities.length;
+  els.modalityTrigger.disabled = state.loading || !state.neighborhoods.length;
   updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
   updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
@@ -503,6 +522,7 @@ async function handleAuthSubmit(event) {
     els.authModal.hidden = true;
     els.authForm.reset();
     await loadSession();
+    await loadFilters();
     await search();
   } catch (error) {
     els.authError.textContent = error.message;
@@ -516,6 +536,7 @@ async function logout() {
   } catch (e) {}
   state.session = null;
   renderAccount();
+  await loadFilters();
   await search();
 }
 
@@ -536,6 +557,67 @@ function fillAlertUfOptions() {
     opt.textContent = item.label;
     els.alertUf.appendChild(opt);
   });
+}
+
+function alertFilterParams() {
+  const filters = state.alertFilters;
+  return {
+    uf: filters.uf,
+    city: filters.cities,
+    neighborhood: filters.neighborhoods,
+    modalidade: filters.modalidades,
+    tipo: filters.tipos,
+  };
+}
+
+function renderAlertUfOptions() {
+  els.alertUf.innerHTML = '<option value="">Todas</option>';
+  state.ufOptions.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = `${item.label} (${formatNumber(item.count)})`;
+    option.selected = item.value === state.alertFilters.uf;
+    els.alertUf.appendChild(option);
+  });
+}
+
+async function loadAlertFilters() {
+  const data = await api("/filters", alertFilterParams());
+  renderAlertUfOptions();
+
+  renderOptions(els.alertCityPanel, "alert-city", data.cities, state.alertFilters.cities, async () => {
+    state.alertFilters.cities = readChecked(els.alertCityPanel);
+    state.alertFilters.neighborhoods = [];
+    state.alertFilters.modalidades = [];
+    state.alertFilters.tipos = [];
+    await loadAlertFilters();
+  }, { placeholder: "Digite para buscar cidade" });
+
+  renderOptions(els.alertNeighborhoodPanel, "alert-neighborhood", data.neighborhoods, state.alertFilters.neighborhoods, async () => {
+    state.alertFilters.neighborhoods = readChecked(els.alertNeighborhoodPanel);
+    state.alertFilters.modalidades = [];
+    state.alertFilters.tipos = [];
+    await loadAlertFilters();
+  }, { placeholder: "Digite para buscar bairro" });
+
+  renderOptions(els.alertModalityPanel, "alert-modalidade", data.modalidades, state.alertFilters.modalidades, async () => {
+    state.alertFilters.modalidades = readChecked(els.alertModalityPanel);
+    await loadAlertFilters();
+  }, { placeholder: "Digite para buscar modalidade" });
+
+  renderOptions(els.alertTypePanel, "alert-tipo", data.tipos, state.alertFilters.tipos, async () => {
+    state.alertFilters.tipos = readChecked(els.alertTypePanel);
+    await loadAlertFilters();
+  }, { placeholder: "Digite para buscar tipo de imovel" });
+
+  els.alertCityTrigger.disabled = !state.alertFilters.uf;
+  els.alertNeighborhoodTrigger.disabled = !state.alertFilters.cities.length;
+  els.alertModalityTrigger.disabled = !state.alertFilters.neighborhoods.length;
+  els.alertTypeTrigger.disabled = !state.alertFilters.modalidades.length;
+  updateTrigger(els.alertCityTrigger, state.alertFilters.cities, "Todas", "selecionadas");
+  updateTrigger(els.alertNeighborhoodTrigger, state.alertFilters.neighborhoods, "Todos", "selecionados");
+  updateTrigger(els.alertModalityTrigger, state.alertFilters.modalidades, "Todas", "selecionadas");
+  updateTrigger(els.alertTypeTrigger, state.alertFilters.tipos, "Todos", "selecionados");
 }
 
 function renderAlertas(list) {
@@ -585,8 +667,10 @@ async function openAlertas() {
   els.alertForm.reset();
   els.alertEmail.checked = true;
   els.alertWhatsapp.checked = false;
+  state.alertFilters = { uf: "", cities: [], neighborhoods: [], modalidades: [], tipos: [] };
   fillAlertUfOptions();
   try {
+    await loadAlertFilters();
     const data = await api("/me");
     renderAlertas(data.preferencias || []);
     els.alertsModal.hidden = false;
@@ -598,10 +682,11 @@ async function openAlertas() {
 async function handleAlertSubmit(event) {
   event.preventDefault();
   const body = {
-    uf: els.alertUf.value,
-    cidades: parseList(els.alertCidades.value),
-    bairros: parseList(els.alertBairros.value),
-    modalidades: parseList(els.alertModalidades.value),
+    uf: state.alertFilters.uf,
+    cidades: state.alertFilters.cities,
+    bairros: state.alertFilters.neighborhoods,
+    modalidades: state.alertFilters.modalidades,
+    tipos: state.alertFilters.tipos,
     canal_email: els.alertEmail.checked,
     canal_whatsapp: els.alertWhatsapp.checked,
     contato_whatsapp: els.alertWhatsappNum.value.trim(),
@@ -611,6 +696,8 @@ async function handleAlertSubmit(event) {
     showAlertsStatus("Alerta salvo com sucesso.", false);
     els.alertForm.reset();
     els.alertEmail.checked = true;
+    state.alertFilters = { uf: "", cities: [], neighborhoods: [], modalidades: [], tipos: [] };
+    await loadAlertFilters();
     const data = await api("/me");
     renderAlertas(data.preferencias || []);
   } catch (e) {
@@ -692,6 +779,10 @@ function bindEvents() {
   setupPanel(els.neighborhoodTrigger, els.neighborhoodPanel);
   setupPanel(els.modalityTrigger, els.modalityPanel);
   setupPanel(els.typeTrigger, els.typePanel);
+  setupPanel(els.alertCityTrigger, els.alertCityPanel);
+  setupPanel(els.alertNeighborhoodTrigger, els.alertNeighborhoodPanel);
+  setupPanel(els.alertModalityTrigger, els.alertModalityPanel);
+  setupPanel(els.alertTypeTrigger, els.alertTypePanel);
 
   document.addEventListener("click", closePanels);
 
@@ -699,6 +790,8 @@ function bindEvents() {
     state.uf = els.uf.value;
     state.cities = [];
     state.neighborhoods = [];
+    state.modalidades = [];
+    state.tipos = [];
     await loadFilters();
     scheduleSearch();
   });
@@ -742,6 +835,14 @@ function bindEvents() {
   els.alertsClose.addEventListener("click", () => (els.alertsModal.hidden = true));
   els.alertsModal.addEventListener("click", (e) => { if (e.target === els.alertsModal) els.alertsModal.hidden = true; });
   els.alertForm.addEventListener("submit", handleAlertSubmit);
+  els.alertUf.addEventListener("change", async () => {
+    state.alertFilters.uf = els.alertUf.value;
+    state.alertFilters.cities = [];
+    state.alertFilters.neighborhoods = [];
+    state.alertFilters.modalidades = [];
+    state.alertFilters.tipos = [];
+    await loadAlertFilters();
+  });
 
   // Detalhe
   els.detailClose.addEventListener("click", () => (els.detailModal.hidden = true));

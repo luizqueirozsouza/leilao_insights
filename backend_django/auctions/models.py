@@ -102,6 +102,7 @@ class PreferenciaAlerta(models.Model):
     cidades = models.JSONField(default=list, blank=True, verbose_name="Cidades")
     bairros = models.JSONField(default=list, blank=True, verbose_name="Bairros")
     modalidades = models.JSONField(default=list, blank=True, verbose_name="Modalidades")
+    tipos = models.JSONField(default=list, blank=True, verbose_name="Tipos de imóvel")
     canal_email = models.BooleanField(default=True, verbose_name="Notificar por e-mail")
     canal_whatsapp = models.BooleanField(default=False, verbose_name="Notificar por WhatsApp")
     contato_whatsapp = models.CharField(max_length=20, blank=True, default='', verbose_name="WhatsApp (DDI+DDD+número)")

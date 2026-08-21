@@ -198,18 +198,26 @@
               <span>UF</span>
               <select id="alert-uf"><option value="">Todas</option></select>
             </label>
-            <label class="auth-field">
-              <span>Cidades (separadas por virgula)</span>
-              <input type="text" id="alert-cidades" placeholder="ex.: Sao Paulo, Campinas" />
-            </label>
-            <label class="auth-field">
-              <span>Bairros (separados por virgula)</span>
-              <input type="text" id="alert-bairros" placeholder="ex.: Centro, Moema" />
-            </label>
-            <label class="auth-field">
-              <span>Modalidades (separadas por virgula)</span>
-              <input type="text" id="alert-modalidades" placeholder="ex.: Venda, Leilao" />
-            </label>
+            <div class="field">
+              <span>Cidades</span>
+              <button class="multi-trigger" id="alert-city-trigger" type="button" disabled>Todas</button>
+              <div class="multi-panel" id="alert-city-panel"></div>
+            </div>
+            <div class="field">
+              <span>Bairros</span>
+              <button class="multi-trigger" id="alert-neighborhood-trigger" type="button" disabled>Todos</button>
+              <div class="multi-panel" id="alert-neighborhood-panel"></div>
+            </div>
+            <div class="field">
+              <span>Modalidades</span>
+              <button class="multi-trigger" id="alert-modality-trigger" type="button" disabled>Todas</button>
+              <div class="multi-panel" id="alert-modality-panel"></div>
+            </div>
+            <div class="field">
+              <span>Tipo de imovel</span>
+              <button class="multi-trigger" id="alert-type-trigger" type="button" disabled>Todos</button>
+              <div class="multi-panel" id="alert-type-panel"></div>
+            </div>
           </div>
           <div class="alert-channels">
             <label class="channel"><input type="checkbox" id="alert-email" checked /> E-mail</label>

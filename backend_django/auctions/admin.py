@@ -46,6 +46,7 @@ class PreferenciaAlertaAdmin(admin.ModelAdmin):
     list_display = ('usuario', 'uf', 'canal_email', 'canal_whatsapp', 'criada_em')
     list_filter = ('uf', 'canal_email', 'canal_whatsapp')
     search_fields = ('usuario__email',)
+    readonly_fields = ('criada_em',)
 
 
 @admin.register(NotificacaoEnviada)

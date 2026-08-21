@@ -133,9 +133,18 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
         'modalidade',
     )
 
+    tipos_qs = base_qs
+    if uf:
+        tipos_qs = tipos_qs.filter(uf=uf)
+    if cidade:
+        tipos_qs = tipos_qs.filter(cidade__in=cidade)
+    if bairro:
+        tipos_qs = tipos_qs.filter(bairro__in=bairro)
+    if modalidade:
+        tipos_qs = tipos_qs.filter(modalidade__in=modalidade)
     tipos = _cached_count_options(
-        f"filter_tipos:{access_scope}",
-        base_qs,
+        f"filter_tipos:{access_scope}:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(bairro)}:{_cache_part(modalidade)}",
+        tipos_qs,
         'tipo_imovel',
     )
 

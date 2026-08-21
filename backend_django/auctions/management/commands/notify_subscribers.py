@@ -26,6 +26,8 @@ def _pref_casa(pref: PreferenciaAlerta, imovel: Auction) -> bool:
         return False
     if pref.modalidades and (imovel.modalidade or "").strip() not in pref.modalidades:
         return False
+    if pref.tipos and (imovel.tipo_imovel or "").strip() not in pref.tipos:
+        return False
     return True
 
 
@@ -125,7 +127,7 @@ class Command(BaseCommand):
                     # casa apenas pela UF quando a preferencia nao restringe outros campos.
                     if pref.uf and pref.uf.upper() != evento["uf"].upper():
                         continue
-                    if pref.cidades or pref.bairros or pref.modalidades:
+                    if pref.cidades or pref.bairros or pref.modalidades or pref.tipos:
                         continue
 
                 ja_enviado = NotificacaoEnviada.objects.filter(

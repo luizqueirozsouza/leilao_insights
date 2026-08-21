@@ -35,6 +35,7 @@ def _serializar_preferencia(pref):
         'cidades': pref.cidades or [],
         'bairros': pref.bairros or [],
         'modalidades': pref.modalidades or [],
+        'tipos': pref.tipos or [],
         'canal_email': pref.canal_email,
         'canal_whatsapp': pref.canal_whatsapp,
         'contato_whatsapp': pref.contato_whatsapp,
@@ -148,6 +149,7 @@ def api_preferencias(request):
             cidades=body.get('cidades') or [],
             bairros=body.get('bairros') or [],
             modalidades=body.get('modalidades') or [],
+            tipos=body.get('tipos') or [],
             canal_email=bool(body.get('canal_email', True)),
             canal_whatsapp=bool(body.get('canal_whatsapp', False)),
             contato_whatsapp=(body.get('contato_whatsapp') or '').strip(),
@@ -178,6 +180,7 @@ def api_preferencias_id(request, pref_id):
         pref.cidades = body.get('cidades', pref.cidades) or []
         pref.bairros = body.get('bairros', pref.bairros) or []
         pref.modalidades = body.get('modalidades', pref.modalidades) or []
+        pref.tipos = body.get('tipos', pref.tipos) or []
         pref.canal_email = bool(body.get('canal_email', pref.canal_email))
         pref.canal_whatsapp = bool(body.get('canal_whatsapp', pref.canal_whatsapp))
         pref.contato_whatsapp = (body.get('contato_whatsapp', pref.contato_whatsapp) or '').strip()
