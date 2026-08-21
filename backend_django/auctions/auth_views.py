@@ -4,10 +4,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.http import JsonResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from backend_django.auctions.access import usuario_tem_assinatura_ativa
-from backend_django.auctions.models import PreferenciaAlerta
+from backend_django.auctions.models import Assinatura, PreferenciaAlerta
 
 
 def _json_body(request):
@@ -83,13 +85,13 @@ def api_login(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
     body = _json_body(request)
-    email = (body.get('email') or '').strip().lower()
+    identifier = (body.get('email') or body.get('username') or '').strip().lower()
     senha = body.get('senha') or body.get('password') or ''
 
-    user = authenticate(request, username=email, password=senha)
+    user = authenticate(request, username=identifier, password=senha)
     if user is None:
-        # tenta login por username que foi criado a partir do email
-        match = User.objects.filter(email=email).first()
+        # Também permite entrar usando o e-mail de uma conta cujo username é diferente.
+        match = User.objects.filter(email=identifier).first()
         if match:
             user = authenticate(request, username=match.username, password=senha)
     if user is None:
@@ -183,6 +185,69 @@ def api_admin_overview(request):
             'alertas': len(alertas),
         },
     })
+
+
+def api_admin_user(request, user_id):
+    forbidden = _admin_forbidden(request)
+    if forbidden:
+        return forbidden
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return JsonResponse({'error': 'Usuário não encontrado'}, status=404)
+    body = _json_body(request)
+    email = (body.get('email', user.email) or '').strip().lower()
+    nome = (body.get('nome', user.first_name) or '').strip()
+    if not email:
+        return JsonResponse({'error': 'E-mail é obrigatório'}, status=400)
+    if User.objects.filter(email=email).exclude(id=user.id).exists():
+        return JsonResponse({'error': 'E-mail já está em uso'}, status=400)
+
+    user.email = email
+    user.first_name = nome
+    if 'ativo' in body:
+        if user.id == request.user.id and not bool(body['ativo']):
+            return JsonResponse({'error': 'Você não pode desativar sua própria conta'}, status=400)
+        user.is_active = bool(body['ativo'])
+    user.save(update_fields=['email', 'first_name', 'is_active'])
+    return JsonResponse({'ok': True})
+
+
+def api_admin_subscription(request, user_id):
+    forbidden = _admin_forbidden(request)
+    if forbidden:
+        return forbidden
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return JsonResponse({'error': 'Usuário não encontrado'}, status=404)
+    body = _json_body(request)
+    data_inicio = body.get('data_inicio') or None
+    data_fim = body.get('data_fim') or None
+    if data_inicio:
+        data_inicio = parse_date(data_inicio)
+        if not data_inicio:
+            return JsonResponse({'error': 'Data de início inválida'}, status=400)
+    if data_fim:
+        data_fim = parse_date(data_fim)
+        if not data_fim:
+            return JsonResponse({'error': 'Data de validade inválida'}, status=400)
+    if data_inicio and data_fim and data_fim < data_inicio:
+        return JsonResponse({'error': 'A validade não pode ser anterior ao início'}, status=400)
+
+    ativa = bool(body.get('ativa', False))
+    if ativa and not data_inicio:
+        data_inicio = timezone.localdate()
+    assinatura, _ = Assinatura.objects.get_or_create(usuario=user)
+    assinatura.ativa = ativa
+    assinatura.data_inicio = data_inicio
+    assinatura.data_fim = data_fim
+    assinatura.save()
+    return JsonResponse({'ok': True, 'assinatura': _serializar_assinatura(user)})
 
 
 def api_preferencias(request):

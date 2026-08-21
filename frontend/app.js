@@ -20,6 +20,8 @@ const state = {
     tipos: [],
   },
   calculator: null,
+  adminUsers: [],
+  editingAdminUser: null,
 };
 
 function csrfToken() {
@@ -89,6 +91,20 @@ const els = {
   adminUsersBody: document.querySelector("#admin-users-body"),
   adminAlertsCount: document.querySelector("#admin-alerts-count"),
   adminAlertsBody: document.querySelector("#admin-alerts-body"),
+  adminUserEditModal: document.querySelector("#admin-user-edit-modal"),
+  adminUserEditClose: document.querySelector("#admin-user-edit-close"),
+  adminUserEditForm: document.querySelector("#admin-user-edit-form"),
+  adminEditTitle: document.querySelector("#admin-edit-title"),
+  adminEditEmailHint: document.querySelector("#admin-edit-email-hint"),
+  adminEditName: document.querySelector("#admin-edit-name"),
+  adminEditEmail: document.querySelector("#admin-edit-email"),
+  adminEditActive: document.querySelector("#admin-edit-active"),
+  adminEditSubscriptionActive: document.querySelector("#admin-edit-subscription-active"),
+  adminEditSubscriptionStatus: document.querySelector("#admin-edit-subscription-status"),
+  adminEditStart: document.querySelector("#admin-edit-start"),
+  adminEditEnd: document.querySelector("#admin-edit-end"),
+  adminEditError: document.querySelector("#admin-edit-error"),
+  adminEditSubmit: document.querySelector("#admin-edit-submit"),
   alertsModal: document.querySelector("#alerts-modal"),
   alertsClose: document.querySelector("#alerts-close"),
   alertsStatus: document.querySelector("#alerts-status"),
@@ -586,6 +602,7 @@ function renderAdminOverview(data) {
   ].map(([label, value]) => `<div><span>${label}</span><strong>${formatNumber(value)}</strong></div>`).join("");
 
   const users = data.usuarios || [];
+  state.adminUsers = users;
   els.adminUsersCount.textContent = `${formatNumber(users.length)} registrados`;
   els.adminUsersBody.innerHTML = users.length ? users.map((user) => {
     const subscription = user.assinatura;
@@ -595,8 +612,9 @@ function renderAdminOverview(data) {
       <td><span class="table-badge ${subscription && subscription.ativa ? "active" : "inactive"}">${status}</span>${subscription && subscription.data_fim ? `<small>até ${formatDate(subscription.data_fim)}</small>` : ""}</td>
       <td>${formatNumber(user.alertas || 0)}</td>
       <td>${formatDateTime(user.criado_em)}</td>
+      <td><button class="table-action-button" type="button" data-admin-edit-user="${user.id}">Editar</button></td>
     </tr>`;
-  }).join("") : '<tr><td colspan="4" class="table-empty">Nenhum usuário encontrado.</td></tr>';
+  }).join("") : '<tr><td colspan="5" class="table-empty">Nenhum usuário encontrado.</td></tr>';
 
   const alerts = data.alertas || [];
   els.adminAlertsCount.textContent = `${formatNumber(alerts.length)} cadastrados`;
@@ -616,6 +634,62 @@ function renderAdminOverview(data) {
       <td>${formatDateTime(alert.criada_em)}</td>
     </tr>`;
   }).join("") : '<tr><td colspan="4" class="table-empty">Nenhum alerta cadastrado.</td></tr>';
+}
+
+function openAdminUserEdit(userId) {
+  const user = state.adminUsers.find((item) => item.id === Number(userId));
+  if (!user) return;
+  state.editingAdminUser = user;
+  const subscription = user.assinatura || {};
+  els.adminEditTitle.textContent = `Editar ${user.nome || "usuário"}`;
+  els.adminEditEmailHint.textContent = user.email || "";
+  els.adminEditName.value = user.nome || "";
+  els.adminEditEmail.value = user.email || "";
+  els.adminEditActive.checked = user.ativo !== false;
+  els.adminEditSubscriptionActive.checked = !!subscription.ativa;
+  els.adminEditSubscriptionStatus.textContent = subscription.ativa ? "Ativa" : "Inativa";
+  els.adminEditStart.value = subscription.data_inicio || "";
+  els.adminEditEnd.value = subscription.data_fim || "";
+  els.adminEditError.hidden = true;
+  els.adminUserEditModal.hidden = false;
+}
+
+function closeAdminUserEdit() {
+  els.adminUserEditModal.hidden = true;
+  state.editingAdminUser = null;
+}
+
+async function handleAdminUserEdit(event) {
+  event.preventDefault();
+  const user = state.editingAdminUser;
+  if (!user) return;
+  els.adminEditError.hidden = true;
+  els.adminEditSubmit.disabled = true;
+  try {
+    await api(`/admin/users/${user.id}`, {}, {
+      method: "PUT",
+      body: {
+        nome: els.adminEditName.value.trim(),
+        email: els.adminEditEmail.value.trim(),
+        ativo: els.adminEditActive.checked,
+      },
+    });
+    await api(`/admin/users/${user.id}/subscription`, {}, {
+      method: "PUT",
+      body: {
+        ativa: els.adminEditSubscriptionActive.checked,
+        data_inicio: els.adminEditStart.value || null,
+        data_fim: els.adminEditEnd.value || null,
+      },
+    });
+    closeAdminUserEdit();
+    await openAdminPanel();
+  } catch (error) {
+    els.adminEditError.textContent = error.message || "Não foi possível salvar as alterações.";
+    els.adminEditError.hidden = false;
+  } finally {
+    els.adminEditSubmit.disabled = false;
+  }
 }
 
 async function openAdminPanel() {
@@ -661,6 +735,9 @@ function setAuthMode(mode) {
   els.tabLogin.classList.toggle("active", isLogin);
   els.tabRegister.classList.toggle("active", !isLogin);
   els.authPassword.autocomplete = isLogin ? "current-password" : "new-password";
+  els.authEmail.type = isLogin ? "text" : "email";
+  els.authEmail.autocomplete = isLogin ? "username" : "email";
+  els.authEmail.placeholder = isLogin ? "voce@email.com ou admin" : "voce@email.com";
 }
 
 async function handleAuthSubmit(event) {
@@ -1171,6 +1248,13 @@ function bindEvents() {
   els.adminClose.addEventListener("click", () => (els.adminModal.hidden = true));
   els.adminModal.addEventListener("click", (e) => { if (e.target === els.adminModal) els.adminModal.hidden = true; });
   els.adminRefresh.addEventListener("click", openAdminPanel);
+  els.adminUsersBody.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-edit-user]");
+    if (button) openAdminUserEdit(button.dataset.adminEditUser);
+  });
+  els.adminUserEditClose.addEventListener("click", closeAdminUserEdit);
+  els.adminUserEditModal.addEventListener("click", (e) => { if (e.target === els.adminUserEditModal) closeAdminUserEdit(); });
+  els.adminUserEditForm.addEventListener("submit", handleAdminUserEdit);
 
   // Alertas
   els.alertasBtn.addEventListener("click", openAlertas);
@@ -1213,6 +1297,7 @@ function bindEvents() {
     else if (!els.detailModal.hidden) els.detailModal.hidden = true;
     else if (!els.alertsModal.hidden) els.alertsModal.hidden = true;
     else if (!els.userModal.hidden) els.userModal.hidden = true;
+    else if (!els.adminUserEditModal.hidden) closeAdminUserEdit();
     else if (!els.adminModal.hidden) els.adminModal.hidden = true;
     else if (!els.authModal.hidden) els.authModal.hidden = true;
   });

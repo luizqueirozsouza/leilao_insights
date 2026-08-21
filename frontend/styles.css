@@ -1021,6 +1021,10 @@ input {
   width: min(1080px, 100%);
 }
 
+.admin-edit-modal {
+  width: min(560px, 100%);
+}
+
 .admin-head,
 .admin-section-head {
   display: flex;
@@ -1159,6 +1163,22 @@ input {
   min-width: 190px;
 }
 
+.table-action-button {
+  padding: 7px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.table-action-button:hover {
+  background: #dbeafe;
+}
+
 .admin-table td strong,
 .admin-table td small {
   display: block;
@@ -1198,6 +1218,49 @@ input {
   padding: 22px 13px !important;
   color: var(--muted) !important;
   text-align: center;
+}
+
+.admin-check-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 16px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-check-field input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--blue);
+}
+
+.admin-subscription-box {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #e0e7ff;
+  border-radius: 14px;
+  background: #f8faff;
+}
+
+.admin-subscription-box .user-info-grid {
+  margin-top: 8px;
+}
+
+.admin-subscription-box .auth-field {
+  margin-bottom: 0;
+}
+
+.admin-edit-error {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ---------- Calculadora ---------- */

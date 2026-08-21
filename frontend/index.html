@@ -174,9 +174,9 @@
           <button class="auth-tab" id="tab-register" type="button">Criar conta</button>
         </div>
         <form id="auth-form">
-          <label class="auth-field">
-            <span>Email</span>
-            <input type="email" id="auth-email" required autocomplete="email" placeholder="voce@email.com" />
+            <label class="auth-field">
+              <span>E-mail ou usuário</span>
+              <input type="text" id="auth-email" required autocomplete="username" placeholder="voce@email.com ou admin" />
           </label>
           <label class="auth-field">
             <span>Senha</span>
@@ -244,12 +244,37 @@
         <div class="admin-summary" id="admin-summary"></div>
         <section class="admin-section">
           <div class="admin-section-head"><h3>Usuários</h3><span id="admin-users-count"></span></div>
-          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Usuário</th><th>Assinatura</th><th>Alertas</th><th>Cadastro</th></tr></thead><tbody id="admin-users-body"></tbody></table></div>
+          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Usuário</th><th>Assinatura</th><th>Alertas</th><th>Cadastro</th><th>Ações</th></tr></thead><tbody id="admin-users-body"></tbody></table></div>
         </section>
         <section class="admin-section">
           <div class="admin-section-head"><h3>Alertas cadastrados</h3><span id="admin-alerts-count"></span></div>
           <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Usuário</th><th>Filtros</th><th>Canais</th><th>Data</th></tr></thead><tbody id="admin-alerts-body"></tbody></table></div>
         </section>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="admin-user-edit-modal" hidden>
+      <div class="modal admin-edit-modal" role="dialog" aria-modal="true" aria-labelledby="admin-edit-title">
+        <button class="modal-close" id="admin-user-edit-close" type="button" aria-label="Fechar">&times;</button>
+        <p class="user-kicker">Administração</p>
+        <h2 id="admin-edit-title">Editar usuário</h2>
+        <p class="modal-sub" id="admin-edit-email-hint"></p>
+        <form id="admin-user-edit-form">
+          <label class="auth-field"><span>Nome</span><input id="admin-edit-name" type="text" autocomplete="name" /></label>
+          <label class="auth-field"><span>E-mail</span><input id="admin-edit-email" type="email" required autocomplete="email" /></label>
+          <label class="admin-check-field"><input id="admin-edit-active" type="checkbox" /> Usuário ativo</label>
+
+          <div class="admin-subscription-box">
+            <div class="user-section-head"><h3>Assinatura</h3><span id="admin-edit-subscription-status">-</span></div>
+            <label class="admin-check-field"><input id="admin-edit-subscription-active" type="checkbox" /> Assinatura ativa</label>
+            <div class="user-info-grid">
+              <label class="auth-field"><span>Início</span><input id="admin-edit-start" type="date" /></label>
+              <label class="auth-field"><span>Validade</span><input id="admin-edit-end" type="date" /></label>
+            </div>
+          </div>
+          <div class="admin-edit-error" id="admin-edit-error" hidden></div>
+          <button class="auth-submit" id="admin-edit-submit" type="submit">Salvar alterações</button>
+        </form>
       </div>
     </div>
 
