@@ -19,6 +19,7 @@ const state = {
     modalidades: [],
     tipos: [],
   },
+  calculator: null,
 };
 
 function csrfToken() {
@@ -89,6 +90,20 @@ const els = {
   detailTitle: document.querySelector("#detail-title"),
   detailLoading: document.querySelector("#detail-loading"),
   detailBody: document.querySelector("#detail-body"),
+  calculatorModal: document.querySelector("#calculator-modal"),
+  calculatorClose: document.querySelector("#calculator-close"),
+  calculatorSource: document.querySelector("#calculator-source"),
+  calcValuation: document.querySelector("#calc-valuation"),
+  calcAuction: document.querySelector("#calc-auction"),
+  calcSale: document.querySelector("#calc-sale"),
+  calcArea: document.querySelector("#calc-area"),
+  acquisitionCosts: document.querySelector("#acquisition-costs"),
+  saleCosts: document.querySelector("#sale-costs"),
+  calcTotal: document.querySelector("#calc-total"),
+  calcSaleCosts: document.querySelector("#calc-sale-costs"),
+  calcProfit: document.querySelector("#calc-profit"),
+  calcMargin: document.querySelector("#calc-margin"),
+  calcRoi: document.querySelector("#calc-roi"),
 };
 
 function setLoading(isLoading) {
@@ -707,6 +722,148 @@ async function handleAlertSubmit(event) {
 
 // ---------- Detalhe enriquecido ----------
 
+const calculatorCostDefinitions = [
+  { key: "itbi", label: "ITBI", group: "acquisition" },
+  { key: "registry", label: "Cartorio e registro", group: "acquisition" },
+  { key: "reform", label: "Reforma", group: "acquisition" },
+  { key: "acquisitionOther", label: "Outros custos de aquisicao", group: "acquisition" },
+  { key: "brokerage", label: "Corretagem", group: "sale" },
+  { key: "saleTaxes", label: "Impostos da venda", group: "sale" },
+  { key: "saleOther", label: "Outros custos da venda", group: "sale" },
+];
+
+function parseMoneyValue(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const text = String(value || "").replace(/[^\d,.-]/g, "").trim();
+  if (!text) return 0;
+  const normalized = text.includes(",")
+    ? text.replace(/\./g, "").replace(",", ".")
+    : text;
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function firstPayloadValue(payload, keys) {
+  return keys.map((key) => payload[key]).find((value) => value !== undefined && value !== null && String(value).trim() !== "") || "";
+}
+
+function renderCalculatorCostRows() {
+  const baseOptions = [
+    ["auction", "Valor de arrematacao"],
+    ["valuation", "Valor de avaliacao"],
+    ["sale", "Valor estimado de venda"],
+  ];
+
+  [els.acquisitionCosts, els.saleCosts].forEach((container) => {
+    container.innerHTML = "";
+  });
+
+  calculatorCostDefinitions.forEach((definition) => {
+    const row = document.createElement("div");
+    row.className = "cost-row";
+    row.dataset.costKey = definition.key;
+    row.innerHTML = `
+      <div class="cost-label"><strong>${definition.label}</strong><span class="cost-calculated" data-cost-result>R$ 0,00</span></div>
+      <input class="cost-value" data-cost-value type="number" min="0" step="0.01" value="0" aria-label="Valor de ${definition.label}" />
+      <select class="cost-mode" data-cost-mode aria-label="Modo de ${definition.label}">
+        <option value="fixed">Fixo (R$)</option>
+        <option value="percent">Percentual (%)</option>
+      </select>
+      <select class="cost-base" data-cost-base aria-label="Base de ${definition.label}">
+        ${baseOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
+      </select>`;
+    const mode = row.querySelector("[data-cost-mode]");
+    const base = row.querySelector("[data-cost-base]");
+    const value = row.querySelector("[data-cost-value]");
+    const update = () => {
+      base.hidden = mode.value !== "percent";
+      value.max = mode.value === "percent" ? "100" : "";
+      recalculateCalculator();
+    };
+    mode.addEventListener("change", update);
+    base.addEventListener("change", recalculateCalculator);
+    value.addEventListener("input", recalculateCalculator);
+    (definition.group === "acquisition" ? els.acquisitionCosts : els.saleCosts).appendChild(row);
+    update();
+  });
+}
+
+function calculatorBaseValue(base) {
+  const calc = state.calculator || {};
+  if (base === "auction") return calc.auction || 0;
+  if (base === "valuation") return calc.valuation || 0;
+  if (base === "sale") return calc.sale || 0;
+  return 0;
+}
+
+function costRowAmount(row) {
+  const valueInput = row.querySelector("[data-cost-value]");
+  const mode = row.querySelector("[data-cost-mode]").value;
+  const base = row.querySelector("[data-cost-base]").value;
+  const value = Math.max(0, parseMoneyValue(valueInput.value));
+  valueInput.value = value;
+  return mode === "percent" ? calculatorBaseValue(base) * value / 100 : value;
+}
+
+function recalculateCalculator() {
+  if (!state.calculator) return;
+  state.calculator.valuation = Math.max(0, parseMoneyValue(els.calcValuation.value));
+  state.calculator.auction = Math.max(0, parseMoneyValue(els.calcAuction.value));
+  state.calculator.sale = Math.max(0, parseMoneyValue(els.calcSale.value));
+  state.calculator.area = Math.max(0, parseMoneyValue(els.calcArea.value));
+
+  const acquisition = Array.from(els.acquisitionCosts.querySelectorAll(".cost-row"));
+  const sale = Array.from(els.saleCosts.querySelectorAll(".cost-row"));
+  const acquisitionTotal = acquisition.reduce((total, row) => {
+    const amount = costRowAmount(row);
+    row.querySelector("[data-cost-result]").textContent = formatMoney(amount);
+    return total + amount;
+  }, 0);
+  const saleTotal = sale.reduce((total, row) => {
+    const amount = costRowAmount(row);
+    row.querySelector("[data-cost-result]").textContent = formatMoney(amount);
+    return total + amount;
+  }, 0);
+  const investment = state.calculator.auction + acquisitionTotal;
+  const profit = state.calculator.sale - investment - saleTotal;
+  const margin = state.calculator.sale ? (profit / state.calculator.sale) * 100 : null;
+  const roi = investment ? (profit / investment) * 100 : null;
+
+  els.calcTotal.textContent = formatMoney(investment);
+  els.calcSaleCosts.textContent = formatMoney(saleTotal);
+  els.calcProfit.textContent = formatMoney(profit);
+  els.calcProfit.classList.toggle("negative", profit < 0);
+  els.calcMargin.textContent = margin === null ? "-" : `${margin.toFixed(2).replace(".", ",")}%`;
+  els.calcRoi.textContent = roi === null ? "-" : `${roi.toFixed(2).replace(".", ",")}%`;
+}
+
+function openCalculator(data, payload) {
+  const enriched = data.dados_enriquecidos || {};
+  const valuation = firstPayloadValue(payload, ["Valor de avaliacao", "Valor de avalia\u00e7\u00e3o"]);
+  const auction = firstPayloadValue(payload, ["Preco", "Pre\u00e7o"]);
+  const area = firstPayloadValue(enriched, ["area_privativa", "area_terreno", "area"]);
+  state.calculator = {
+    valuation: parseMoneyValue(valuation),
+    auction: parseMoneyValue(auction),
+    sale: 0,
+    area: parseMoneyValue(area),
+  };
+  els.calculatorSource.textContent = `${payload.Cidade || "Imovel"}${payload.Bairro ? ` · ${payload.Bairro}` : ""}`;
+  els.calcValuation.value = state.calculator.valuation || "";
+  els.calcAuction.value = state.calculator.auction || "";
+  els.calcSale.value = "";
+  els.calcArea.value = state.calculator.area || "";
+  renderCalculatorCostRows();
+  els.calculatorModal.hidden = false;
+  recalculateCalculator();
+  els.calcSale.focus();
+}
+
+function closeCalculator() {
+  els.calculatorModal.hidden = true;
+  state.calculator = null;
+}
+
 function openDetail(numero, payload) {
   els.detailModal.hidden = false;
   els.detailLoading.hidden = false;
@@ -746,7 +903,8 @@ function renderDetail(data, payload) {
     ["Modalidade", payload["Modalidade de venda"]],
   ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "");
 
-  let html = '<div class="detail-grid">';
+  let html = '<button class="calculator-open-button" type="button" data-open-calculator>Simular aquisicao</button>';
+  html += '<div class="detail-grid">';
   rows.forEach(([label, value]) => {
     html += `<div class="detail-item"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`;
   });
@@ -762,6 +920,11 @@ function renderDetail(data, payload) {
   if (payload["Link de acesso"]) {
     html += `<div class="detail-section"><a class="doc-link inline" href="${escapeHtml(payload["Link de acesso"])}" target="_blank" rel="noopener noreferrer">Ver documentacao na Caixa</a></div>`;
   }
+
+  window.setTimeout(() => {
+    const button = els.detailBody.querySelector("[data-open-calculator]");
+    if (button) button.addEventListener("click", () => openCalculator(data, payload));
+  }, 0);
 
   return html;
 }
@@ -847,6 +1010,22 @@ function bindEvents() {
   // Detalhe
   els.detailClose.addEventListener("click", () => (els.detailModal.hidden = true));
   els.detailModal.addEventListener("click", (e) => { if (e.target === els.detailModal) els.detailModal.hidden = true; });
+
+  // Calculadora publica
+  [els.calcValuation, els.calcAuction, els.calcSale, els.calcArea].forEach((input) => {
+    input.addEventListener("input", recalculateCalculator);
+  });
+  els.calculatorClose.addEventListener("click", closeCalculator);
+  els.calculatorModal.addEventListener("click", (e) => {
+    if (e.target === els.calculatorModal) closeCalculator();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!els.calculatorModal.hidden) closeCalculator();
+    else if (!els.detailModal.hidden) els.detailModal.hidden = true;
+    else if (!els.alertsModal.hidden) els.alertsModal.hidden = true;
+    else if (!els.authModal.hidden) els.authModal.hidden = true;
+  });
 }
 
 async function init() {

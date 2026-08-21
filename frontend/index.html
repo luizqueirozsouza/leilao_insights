@@ -49,6 +49,10 @@
             </article>
           </div>
           <div class="account-bar" id="account-bar">
+            <button class="alertas-btn" id="alertas-btn" type="button" hidden>
+              <span class="icon-bell" aria-hidden="true"></span>
+              Meus alertas
+            </button>
             <button class="account-btn" id="account-btn" type="button">Entrar</button>
           </div>
         </div>
@@ -105,10 +109,6 @@
             <div class="multi-panel" id="type-panel"></div>
           </div>
 
-          <button class="alertas-btn" id="alertas-btn" type="button" hidden>
-            <span class="icon-bell" aria-hidden="true"></span>
-            Meus alertas
-          </button>
         </div>
       </section>
 
@@ -239,6 +239,45 @@
         <h2 id="detail-title">Detalhes do imovel</h2>
         <div class="detail-loading" id="detail-loading">Carregando detalhes...</div>
         <div class="detail-body" id="detail-body" hidden></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="calculator-modal" hidden>
+      <div class="modal modal-calculator" role="dialog" aria-modal="true" aria-labelledby="calculator-title">
+        <button class="modal-close" id="calculator-close" type="button" aria-label="Fechar">&times;</button>
+        <h2 id="calculator-title">Simular aquisicao</h2>
+        <p class="modal-sub">Edite os valores para estimar o investimento e o resultado da venda. Esta simulacao nao e salva.</p>
+
+        <div class="calculator-source" id="calculator-source"></div>
+
+        <section class="calculator-section">
+          <h3>Dados do imovel</h3>
+          <div class="calculator-grid">
+            <label class="calculator-field"><span>Valor de avaliacao</span><input id="calc-valuation" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Valor de arrematacao</span><input id="calc-auction" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Valor estimado de venda</span><input id="calc-sale" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Area (m2)</span><input id="calc-area" type="number" min="0" step="0.01" /></label>
+          </div>
+        </section>
+
+        <section class="calculator-section">
+          <div class="calculator-section-head"><h3>Custos de aquisicao</h3><span>Incluidos no investimento</span></div>
+          <div class="cost-list" id="acquisition-costs"></div>
+        </section>
+
+        <section class="calculator-section">
+          <div class="calculator-section-head"><h3>Custos da venda</h3><span>Descontados do resultado</span></div>
+          <div class="cost-list" id="sale-costs"></div>
+        </section>
+
+        <section class="calculator-summary" aria-live="polite">
+          <div><span>Investimento total</span><strong id="calc-total">-</strong></div>
+          <div><span>Custos da venda</span><strong id="calc-sale-costs">-</strong></div>
+          <div><span>Resultado estimado</span><strong id="calc-profit">-</strong></div>
+          <div><span>Margem</span><strong id="calc-margin">-</strong></div>
+          <div><span>ROI</span><strong id="calc-roi">-</strong></div>
+        </section>
+        <p class="calculator-disclaimer">Valores estimados. Confirme impostos, custos de cartorio e demais despesas com profissionais locais.</p>
       </div>
     </div>
 
