@@ -626,6 +626,10 @@ input {
   border-radius: 16px;
 }
 
+.demo-banner[hidden] {
+  display: none;
+}
+
 .demo-badge {
   padding: 5px 11px;
   background: #f59e0b;
@@ -1107,4 +1111,3 @@ input {
     grid-template-columns: 1fr;
   }
 }
-
