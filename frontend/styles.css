@@ -818,6 +818,10 @@ input {
   width: min(900px, 100%);
 }
 
+.user-modal {
+  width: min(560px, 100%);
+}
+
 .modal h2 {
   margin: 0 0 6px;
   font-size: 22px;
@@ -849,6 +853,351 @@ input {
 
 .modal-close:hover {
   background: #e2e8f0;
+}
+
+/* ---------- Gestao do usuario ---------- */
+.user-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.user-avatar {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--blue), #1d4ed8);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.24);
+}
+
+.user-kicker {
+  margin: 0 0 3px;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.user-head h2 {
+  margin: 0;
+}
+
+.user-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.user-section h3,
+.user-section-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.user-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.user-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.user-info-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+}
+
+.user-info-item span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.user-info-item strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.subscription-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.subscription-badge.active {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.subscription-badge.inactive {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.user-note,
+.user-alert-summary {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.user-link-button {
+  padding: 7px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.user-link-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.user-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.user-logout {
+  color: var(--red);
+  border-color: #fecaca;
+}
+
+.admin-entry-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 20px;
+  border: 1px solid #c4b5fd;
+  border-radius: 13px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.admin-entry-button:hover {
+  background: #ede9fe;
+}
+
+/* ---------- Painel administrativo ---------- */
+.modal-admin {
+  width: min(1080px, 100%);
+}
+
+.admin-head,
+.admin-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-head {
+  margin-bottom: 20px;
+}
+
+.admin-head h2 {
+  margin: 0;
+}
+
+.admin-refresh {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.admin-refresh:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.admin-status {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-status.error {
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: var(--red);
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-summary div {
+  display: grid;
+  gap: 6px;
+  padding: 15px;
+  border: 1px solid #e0e7ff;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8faff, #eef2ff);
+}
+
+.admin-summary span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-summary strong {
+  color: var(--ink);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-section-head {
+  margin-bottom: 12px;
+}
+
+.admin-section-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-section-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 12px;
+}
+
+.admin-table th {
+  padding: 11px 13px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  padding: 12px 13px;
+  border-top: 1px solid #eef2f7;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.admin-table td:first-child {
+  min-width: 190px;
+}
+
+.admin-table td strong,
+.admin-table td small {
+  display: block;
+}
+
+.admin-table td strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.admin-table td small {
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.table-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.table-badge.active {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.table-badge.inactive {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.table-empty {
+  padding: 22px 13px !important;
+  color: var(--muted) !important;
+  text-align: center;
 }
 
 /* ---------- Calculadora ---------- */
@@ -1409,6 +1758,20 @@ input {
   .detail-grid,
   .calculator-grid {
     grid-template-columns: 1fr;
+  }
+
+  .user-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-head,
+  .admin-section-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .account-bar {

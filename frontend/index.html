@@ -189,6 +189,70 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="user-modal" hidden>
+      <div class="modal user-modal" role="dialog" aria-modal="true" aria-labelledby="user-title">
+        <button class="modal-close" id="user-close" type="button" aria-label="Fechar">&times;</button>
+        <div class="user-head">
+          <div class="user-avatar" id="user-avatar" aria-hidden="true">U</div>
+          <div>
+            <p class="user-kicker">Minha conta</p>
+            <h2 id="user-title">Perfil do usuário</h2>
+          </div>
+        </div>
+
+        <section class="user-section">
+          <h3>Dados da conta</h3>
+          <div class="user-info-grid">
+            <div class="user-info-item"><span>Nome</span><strong id="user-name">-</strong></div>
+            <div class="user-info-item"><span>E-mail</span><strong id="user-email">-</strong></div>
+          </div>
+        </section>
+
+        <section class="user-section">
+          <div class="user-section-head"><h3>Assinatura</h3><span class="subscription-badge" id="user-subscription-status">-</span></div>
+          <div class="user-info-grid">
+            <div class="user-info-item"><span>Início</span><strong id="user-subscription-start">-</strong></div>
+            <div class="user-info-item"><span>Validade</span><strong id="user-subscription-end">-</strong></div>
+          </div>
+          <p class="user-note" id="user-subscription-note"></p>
+        </section>
+
+        <section class="user-section">
+          <div class="user-section-head"><h3>Alertas</h3><button class="user-link-button" id="user-alerts-button" type="button">Gerenciar alertas</button></div>
+          <p class="user-alert-summary" id="user-alert-summary">-</p>
+        </section>
+
+        <button class="admin-entry-button" id="admin-entry-button" type="button" hidden>Abrir painel administrativo</button>
+
+        <div class="user-actions">
+          <button class="account-btn user-logout" id="user-logout" type="button">Sair da conta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="admin-modal" hidden>
+      <div class="modal modal-admin" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+        <button class="modal-close" id="admin-close" type="button" aria-label="Fechar">&times;</button>
+        <div class="admin-head">
+          <div>
+            <p class="user-kicker">Área restrita</p>
+            <h2 id="admin-title">Painel administrativo</h2>
+          </div>
+          <button class="admin-refresh" id="admin-refresh" type="button">Atualizar</button>
+        </div>
+        <div class="admin-status" id="admin-status" hidden></div>
+        <div class="admin-summary" id="admin-summary"></div>
+        <section class="admin-section">
+          <div class="admin-section-head"><h3>Usuários</h3><span id="admin-users-count"></span></div>
+          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Usuário</th><th>Assinatura</th><th>Alertas</th><th>Cadastro</th></tr></thead><tbody id="admin-users-body"></tbody></table></div>
+        </section>
+        <section class="admin-section">
+          <div class="admin-section-head"><h3>Alertas cadastrados</h3><span id="admin-alerts-count"></span></div>
+          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Usuário</th><th>Filtros</th><th>Canais</th><th>Data</th></tr></thead><tbody id="admin-alerts-body"></tbody></table></div>
+        </section>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="alerts-modal" hidden>
       <div class="modal modal-lg" role="dialog" aria-modal="true">
         <button class="modal-close" id="alerts-close" type="button" aria-label="Fechar">&times;</button>

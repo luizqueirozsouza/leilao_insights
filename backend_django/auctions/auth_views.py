@@ -4,7 +4,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from backend_django.auctions.access import usuario_tem_assinatura_ativa
 from backend_django.auctions.models import PreferenciaAlerta
@@ -113,17 +113,75 @@ def api_logout(request):
 def api_me(request):
     user = request.user
     if not user.is_authenticated:
-        return JsonResponse({'autenticado': False, 'assinatura': None, 'preferencias': []})
+        return JsonResponse({'autenticado': False, 'administrador': False, 'assinatura': None, 'preferencias': []})
     preferencias = [
         _serializar_preferencia(p)
         for p in user.preferencias_alertas.all().order_by('-id')
     ]
     return JsonResponse({
         'autenticado': True,
+        'administrador': bool(user.is_staff),
         'email': user.email,
         'nome': user.first_name,
         'assinatura': _serializar_assinatura(user),
         'preferencias': preferencias,
+    })
+
+
+def _admin_forbidden(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Faça login para acessar o painel administrativo'}, status=401)
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Acesso restrito a administradores'}, status=403)
+    return None
+
+
+@require_GET
+def api_admin_overview(request):
+    forbidden = _admin_forbidden(request)
+    if forbidden:
+        return forbidden
+
+    users = []
+    user_queryset = User.objects.all().prefetch_related('preferencias_alertas').select_related('assinatura').order_by('-date_joined')
+    for user in user_queryset:
+        assinatura = getattr(user, 'assinatura', None)
+        users.append({
+            'id': user.id,
+            'nome': user.first_name,
+            'email': user.email,
+            'ativo': user.is_active,
+            'staff': user.is_staff,
+            'criado_em': user.date_joined.isoformat() if user.date_joined else None,
+            'assinatura': _serializar_assinatura(user),
+            'alertas': user.preferencias_alertas.count(),
+        })
+
+    alertas = []
+    preferences = PreferenciaAlerta.objects.select_related('usuario').order_by('-id')
+    for pref in preferences:
+        alertas.append({
+            'id': pref.id,
+            'usuario': pref.usuario.email,
+            'nome': pref.usuario.first_name,
+            'uf': pref.uf,
+            'cidades': pref.cidades or [],
+            'bairros': pref.bairros or [],
+            'modalidades': pref.modalidades or [],
+            'tipos': pref.tipos or [],
+            'canal_email': pref.canal_email,
+            'canal_whatsapp': pref.canal_whatsapp,
+            'criada_em': pref.criada_em.isoformat() if pref.criada_em else None,
+        })
+
+    return JsonResponse({
+        'usuarios': users,
+        'alertas': alertas,
+        'resumo': {
+            'usuarios': len(users),
+            'assinaturas_ativas': sum(1 for item in users if item['assinatura'] and item['assinatura']['ativa']),
+            'alertas': len(alertas),
+        },
     })
 
 

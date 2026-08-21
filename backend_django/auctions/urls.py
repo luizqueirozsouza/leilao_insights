@@ -6,6 +6,7 @@ from .views import (
 from .auth_views import (
     api_registro, api_login, api_logout, api_me,
     api_preferencias, api_preferencias_id,
+    api_admin_overview,
 )
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     path('api/login', api_login, name='api_login'),
     path('api/logout', api_logout, name='api_logout'),
     path('api/me', api_me, name='api_me'),
+    path('api/admin/overview', api_admin_overview, name='api_admin_overview'),
     path('api/preferencias', api_preferencias, name='api_preferencias'),
     path('api/preferencias/<int:pref_id>', api_preferencias_id, name='api_preferencias_id'),
 ]

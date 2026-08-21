@@ -67,6 +67,28 @@ const els = {
   authSubmit: document.querySelector("#auth-submit"),
   tabLogin: document.querySelector("#tab-login"),
   tabRegister: document.querySelector("#tab-register"),
+  userModal: document.querySelector("#user-modal"),
+  userClose: document.querySelector("#user-close"),
+  userAvatar: document.querySelector("#user-avatar"),
+  userName: document.querySelector("#user-name"),
+  userEmail: document.querySelector("#user-email"),
+  userSubscriptionStatus: document.querySelector("#user-subscription-status"),
+  userSubscriptionStart: document.querySelector("#user-subscription-start"),
+  userSubscriptionEnd: document.querySelector("#user-subscription-end"),
+  userSubscriptionNote: document.querySelector("#user-subscription-note"),
+  userAlertSummary: document.querySelector("#user-alert-summary"),
+  userAlertsButton: document.querySelector("#user-alerts-button"),
+  userLogout: document.querySelector("#user-logout"),
+  adminEntryButton: document.querySelector("#admin-entry-button"),
+  adminModal: document.querySelector("#admin-modal"),
+  adminClose: document.querySelector("#admin-close"),
+  adminRefresh: document.querySelector("#admin-refresh"),
+  adminStatus: document.querySelector("#admin-status"),
+  adminSummary: document.querySelector("#admin-summary"),
+  adminUsersCount: document.querySelector("#admin-users-count"),
+  adminUsersBody: document.querySelector("#admin-users-body"),
+  adminAlertsCount: document.querySelector("#admin-alerts-count"),
+  adminAlertsBody: document.querySelector("#admin-alerts-body"),
   alertsModal: document.querySelector("#alerts-modal"),
   alertsClose: document.querySelector("#alerts-close"),
   alertsStatus: document.querySelector("#alerts-status"),
@@ -503,9 +525,114 @@ function renderAccount() {
     els.alertasBtn.hidden = true;
     return;
   }
-  els.accountBtn.textContent = `Sair (${state.session.email})`;
-  els.accountBtn.onclick = () => logout();
+  els.accountBtn.textContent = state.session.nome || "Minha conta";
+  els.accountBtn.onclick = () => openUserPanel();
   els.alertasBtn.hidden = !isAssinante();
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR");
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("pt-BR");
+}
+
+function renderUserPanel() {
+  const session = state.session;
+  if (!session || !session.autenticado) return;
+  const name = session.nome || "Usuário";
+  const subscription = session.assinatura;
+  const preferences = session.preferencias || [];
+  els.userName.textContent = name;
+  els.userEmail.textContent = session.email || "-";
+  els.userAvatar.textContent = name.trim().charAt(0).toUpperCase() || "U";
+  els.userSubscriptionStatus.textContent = subscription && subscription.ativa ? "Ativa" : "Inativa";
+  els.userSubscriptionStatus.className = `subscription-badge ${subscription && subscription.ativa ? "active" : "inactive"}`;
+  els.userSubscriptionStart.textContent = formatDate(subscription && subscription.data_inicio);
+  els.userSubscriptionEnd.textContent = formatDate(subscription && subscription.data_fim);
+  els.userSubscriptionNote.textContent = subscription && subscription.ativa
+    ? "Sua conta tem acesso ao acervo completo e aos alertas."
+    : "A assinatura ativa libera o acervo completo e o recebimento de alertas.";
+  els.userAlertSummary.textContent = preferences.length === 1
+    ? "Você possui 1 alerta configurado."
+    : `Você possui ${preferences.length} alertas configurados.`;
+  els.userAlertsButton.disabled = !isAssinante();
+  els.userAlertsButton.textContent = isAssinante() ? "Gerenciar alertas" : "Exige assinatura";
+  els.adminEntryButton.hidden = !session.administrador;
+}
+
+function openUserPanel() {
+  renderUserPanel();
+  els.userModal.hidden = false;
+}
+
+function showAdminStatus(message, isError = false) {
+  els.adminStatus.hidden = !message;
+  els.adminStatus.textContent = message || "";
+  els.adminStatus.className = `admin-status ${isError ? "error" : ""}`;
+}
+
+function renderAdminOverview(data) {
+  const summary = data.resumo || {};
+  els.adminSummary.innerHTML = [
+    ["Usuários", summary.usuarios || 0],
+    ["Assinaturas ativas", summary.assinaturas_ativas || 0],
+    ["Alertas", summary.alertas || 0],
+  ].map(([label, value]) => `<div><span>${label}</span><strong>${formatNumber(value)}</strong></div>`).join("");
+
+  const users = data.usuarios || [];
+  els.adminUsersCount.textContent = `${formatNumber(users.length)} registrados`;
+  els.adminUsersBody.innerHTML = users.length ? users.map((user) => {
+    const subscription = user.assinatura;
+    const status = subscription && subscription.ativa ? "Ativa" : "Inativa";
+    return `<tr>
+      <td><strong>${escapeHtml(user.nome || "Usuário")}</strong><small>${escapeHtml(user.email || "-")}</small></td>
+      <td><span class="table-badge ${subscription && subscription.ativa ? "active" : "inactive"}">${status}</span>${subscription && subscription.data_fim ? `<small>até ${formatDate(subscription.data_fim)}</small>` : ""}</td>
+      <td>${formatNumber(user.alertas || 0)}</td>
+      <td>${formatDateTime(user.criado_em)}</td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="4" class="table-empty">Nenhum usuário encontrado.</td></tr>';
+
+  const alerts = data.alertas || [];
+  els.adminAlertsCount.textContent = `${formatNumber(alerts.length)} cadastrados`;
+  els.adminAlertsBody.innerHTML = alerts.length ? alerts.map((alert) => {
+    const filters = [
+      alert.uf ? `UF: ${alert.uf}` : "Todas as UFs",
+      alert.cidades && alert.cidades.length ? `Cidades: ${alert.cidades.join(", ")}` : null,
+      alert.bairros && alert.bairros.length ? `Bairros: ${alert.bairros.join(", ")}` : null,
+      alert.modalidades && alert.modalidades.length ? `Modalidades: ${alert.modalidades.join(", ")}` : null,
+      alert.tipos && alert.tipos.length ? `Tipos: ${alert.tipos.join(", ")}` : null,
+    ].filter(Boolean);
+    const channels = [alert.canal_email ? "E-mail" : null, alert.canal_whatsapp ? "WhatsApp" : null].filter(Boolean);
+    return `<tr>
+      <td><strong>${escapeHtml(alert.nome || "Usuário")}</strong><small>${escapeHtml(alert.usuario || "-")}</small></td>
+      <td><small>${escapeHtml(filters.join(" · "))}</small></td>
+      <td>${escapeHtml(channels.join(" / ") || "Nenhum")}</td>
+      <td>${formatDateTime(alert.criada_em)}</td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="4" class="table-empty">Nenhum alerta cadastrado.</td></tr>';
+}
+
+async function openAdminPanel() {
+  if (!state.session || !state.session.administrador) return;
+  els.userModal.hidden = true;
+  els.adminModal.hidden = false;
+  showAdminStatus("Carregando dados administrativos...");
+  els.adminRefresh.disabled = true;
+  try {
+    const data = await api("/admin/overview");
+    renderAdminOverview(data);
+    showAdminStatus("");
+  } catch (error) {
+    showAdminStatus(error.message || "Não foi possível carregar o painel administrativo.", true);
+  } finally {
+    els.adminRefresh.disabled = false;
+  }
 }
 
 async function loadSession() {
@@ -1030,6 +1157,20 @@ function bindEvents() {
   els.authModal.addEventListener("click", (e) => { if (e.target === els.authModal) els.authModal.hidden = true; });
   els.authForm.addEventListener("submit", handleAuthSubmit);
   els.demoCta.addEventListener("click", () => openAuth("register"));
+  els.userClose.addEventListener("click", () => (els.userModal.hidden = true));
+  els.userModal.addEventListener("click", (e) => { if (e.target === els.userModal) els.userModal.hidden = true; });
+  els.userLogout.addEventListener("click", async () => {
+    els.userModal.hidden = true;
+    await logout();
+  });
+  els.userAlertsButton.addEventListener("click", async () => {
+    els.userModal.hidden = true;
+    await openAlertas();
+  });
+  els.adminEntryButton.addEventListener("click", openAdminPanel);
+  els.adminClose.addEventListener("click", () => (els.adminModal.hidden = true));
+  els.adminModal.addEventListener("click", (e) => { if (e.target === els.adminModal) els.adminModal.hidden = true; });
+  els.adminRefresh.addEventListener("click", openAdminPanel);
 
   // Alertas
   els.alertasBtn.addEventListener("click", openAlertas);
@@ -1071,6 +1212,8 @@ function bindEvents() {
     if (!els.calculatorModal.hidden) closeCalculator();
     else if (!els.detailModal.hidden) els.detailModal.hidden = true;
     else if (!els.alertsModal.hidden) els.alertsModal.hidden = true;
+    else if (!els.userModal.hidden) els.userModal.hidden = true;
+    else if (!els.adminModal.hidden) els.adminModal.hidden = true;
     else if (!els.authModal.hidden) els.authModal.hidden = true;
   });
 }
