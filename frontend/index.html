@@ -104,7 +104,7 @@
           </div>
 
           <div class="field">
-            <span>Tipo de imovel</span>
+            <span>Tipo de imóvel</span>
             <button class="multi-trigger" id="type-trigger" type="button">Todos</button>
             <div class="multi-panel" id="type-panel"></div>
           </div>
@@ -217,7 +217,7 @@
               <div class="multi-panel" id="alert-modality-panel"></div>
             </div>
             <div class="field">
-              <span>Tipo de imovel</span>
+              <span>Tipo de imóvel</span>
               <button class="multi-trigger" id="alert-type-trigger" type="button" disabled>Todos</button>
               <div class="multi-panel" id="alert-type-panel"></div>
             </div>
@@ -239,7 +239,7 @@
     <div class="modal-overlay" id="detail-modal" hidden>
       <div class="modal modal-lg" role="dialog" aria-modal="true">
         <button class="modal-close" id="detail-close" type="button" aria-label="Fechar">&times;</button>
-        <h2 id="detail-title">Detalhes do imovel</h2>
+        <h2 id="detail-title">Detalhes do imóvel</h2>
         <div class="detail-loading" id="detail-loading">Carregando detalhes...</div>
         <div class="detail-body" id="detail-body" hidden></div>
       </div>
@@ -248,23 +248,24 @@
     <div class="modal-overlay" id="calculator-modal" hidden>
       <div class="modal modal-calculator" role="dialog" aria-modal="true" aria-labelledby="calculator-title">
         <button class="modal-close" id="calculator-close" type="button" aria-label="Fechar">&times;</button>
-        <h2 id="calculator-title">Simular aquisicao</h2>
-        <p class="modal-sub">Edite os valores para estimar o investimento e o resultado da venda. Esta simulacao nao e salva.</p>
+        <h2 id="calculator-title">Simular aquisição</h2>
+        <p class="modal-sub">Edite os valores para estimar o investimento e o resultado da venda. Esta simulação não é salva.</p>
 
         <div class="calculator-source" id="calculator-source"></div>
 
         <section class="calculator-section">
-          <h3>Dados do imovel</h3>
+          <h3>Dados do imóvel</h3>
           <div class="calculator-grid">
-            <label class="calculator-field"><span>Valor de avaliacao</span><input id="calc-valuation" type="number" min="0" step="0.01" /></label>
-            <label class="calculator-field"><span>Valor de arrematacao</span><input id="calc-auction" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Valor de avaliação</span><input id="calc-valuation" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Valor de arrematação</span><input id="calc-auction" type="number" min="0" step="0.01" /></label>
             <label class="calculator-field"><span>Valor estimado de venda</span><input id="calc-sale" type="number" min="0" step="0.01" /></label>
-            <label class="calculator-field"><span>Area (m2)</span><input id="calc-area" type="number" min="0" step="0.01" /></label>
+            <label class="calculator-field"><span>Área (m²)</span><input id="calc-area" type="number" min="0" step="0.01" /></label>
           </div>
+          <div class="calculator-derived"><span>Valor estimado por m²</span><strong id="calc-sale-per-area">-</strong></div>
         </section>
 
         <section class="calculator-section">
-          <div class="calculator-section-head"><h3>Custos de aquisicao</h3><span>Incluidos no investimento</span></div>
+          <div class="calculator-section-head"><h3>Custos de aquisição</h3><span>Incluídos no investimento</span></div>
           <div class="cost-list" id="acquisition-costs"></div>
         </section>
 
@@ -280,7 +281,7 @@
           <div><span>Margem</span><strong id="calc-margin">-</strong></div>
           <div><span>ROI</span><strong id="calc-roi">-</strong></div>
         </section>
-        <p class="calculator-disclaimer">Valores estimados. Confirme impostos, custos de cartorio e demais despesas com profissionais locais.</p>
+        <p class="calculator-disclaimer">Valores estimados. Confirme impostos, custos de cartório e demais despesas com profissionais locais.</p>
       </div>
     </div>
 

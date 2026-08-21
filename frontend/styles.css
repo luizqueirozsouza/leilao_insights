@@ -928,12 +928,46 @@ input {
   outline: none;
 }
 
+.calculator-field input,
+.cost-value,
+.cost-calculated,
+.calculator-summary strong,
+.calculator-derived strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .calculator-field input:focus,
 .cost-value:focus,
 .cost-mode:focus,
 .cost-base:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.calculator-derived {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+}
+
+.calculator-derived span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calculator-derived strong {
+  color: var(--blue);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .cost-list {

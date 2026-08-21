@@ -97,6 +97,7 @@ const els = {
   calcAuction: document.querySelector("#calc-auction"),
   calcSale: document.querySelector("#calc-sale"),
   calcArea: document.querySelector("#calc-area"),
+  calcSalePerArea: document.querySelector("#calc-sale-per-area"),
   acquisitionCosts: document.querySelector("#acquisition-costs"),
   saleCosts: document.querySelector("#sale-costs"),
   calcTotal: document.querySelector("#calc-total"),
@@ -374,7 +375,7 @@ function renderProperties(properties) {
   els.properties.innerHTML = "";
 
   if (!properties.length) {
-    setStatus("Nenhum imovel encontrado para estes filtros.");
+    setStatus("Nenhum imóvel encontrado para estes filtros.");
     return;
   }
 
@@ -626,7 +627,7 @@ async function loadAlertFilters() {
   renderOptions(els.alertTypePanel, "alert-tipo", data.tipos, state.alertFilters.tipos, async () => {
     state.alertFilters.tipos = readChecked(els.alertTypePanel);
     await loadAlertFilters();
-  }, { placeholder: "Digite para buscar tipo de imovel" });
+  }, { placeholder: "Digite para buscar tipo de imóvel" });
 
   els.alertCityTrigger.disabled = !state.alertFilters.uf;
   els.alertNeighborhoodTrigger.disabled = !state.alertFilters.cities.length;
@@ -727,9 +728,9 @@ async function handleAlertSubmit(event) {
 
 const calculatorCostDefinitions = [
   { key: "itbi", label: "ITBI", group: "acquisition" },
-  { key: "registry", label: "Cartorio e registro", group: "acquisition" },
+  { key: "registry", label: "Cartório e registro", group: "acquisition" },
   { key: "reform", label: "Reforma", group: "acquisition" },
-  { key: "acquisitionOther", label: "Outros custos de aquisicao", group: "acquisition" },
+  { key: "acquisitionOther", label: "Outros custos de aquisição", group: "acquisition" },
   { key: "brokerage", label: "Corretagem", group: "sale" },
   { key: "saleTaxes", label: "Impostos da venda", group: "sale" },
   { key: "saleOther", label: "Outros custos da venda", group: "sale" },
@@ -752,8 +753,8 @@ function firstPayloadValue(payload, keys) {
 
 function renderCalculatorCostRows() {
   const baseOptions = [
-    ["auction", "Valor de arrematacao"],
-    ["valuation", "Valor de avaliacao"],
+    ["auction", "Valor de arrematação"],
+    ["valuation", "Valor de avaliação"],
     ["sale", "Valor estimado de venda"],
   ];
 
@@ -831,6 +832,9 @@ function recalculateCalculator() {
   const profit = state.calculator.sale - investment - saleTotal;
   const margin = state.calculator.sale ? (profit / state.calculator.sale) * 100 : null;
   const roi = investment ? (profit / investment) * 100 : null;
+  const salePerArea = state.calculator.sale && state.calculator.area
+    ? state.calculator.sale / state.calculator.area
+    : null;
 
   els.calcTotal.textContent = formatMoney(investment);
   els.calcSaleCosts.textContent = formatMoney(saleTotal);
@@ -838,6 +842,7 @@ function recalculateCalculator() {
   els.calcProfit.classList.toggle("negative", profit < 0);
   els.calcMargin.textContent = margin === null ? "-" : `${margin.toFixed(2).replace(".", ",")}%`;
   els.calcRoi.textContent = roi === null ? "-" : `${roi.toFixed(2).replace(".", ",")}%`;
+  els.calcSalePerArea.textContent = salePerArea === null ? "-" : `${formatMoney(salePerArea)} / m²`;
 }
 
 function openCalculator(data, payload) {
@@ -851,7 +856,7 @@ function openCalculator(data, payload) {
     sale: 0,
     area: parseMoneyValue(area),
   };
-  els.calculatorSource.textContent = `${payload.Cidade || "Imovel"}${payload.Bairro ? ` · ${payload.Bairro}` : ""}`;
+  els.calculatorSource.textContent = `${payload.Cidade || "Imóvel"}${payload.Bairro ? ` · ${payload.Bairro}` : ""}`;
   els.calcValuation.value = state.calculator.valuation || "";
   els.calcAuction.value = state.calculator.auction || "";
   els.calcSale.value = "";
@@ -882,7 +887,7 @@ function openDetail(numero, payload) {
     .catch((error) => {
       els.detailLoading.hidden = true;
       els.detailBody.hidden = false;
-      els.detailBody.innerHTML = `<p class="modal-sub">Nao foi possivel carregar os detalhes enriquecidos: ${error.message}</p>`;
+      els.detailBody.innerHTML = `<p class="modal-sub">Não foi possível carregar os detalhes enriquecidos: ${error.message}</p>`;
     });
 }
 
@@ -891,22 +896,22 @@ function renderDetail(data, payload) {
   const rows = [
     ["Cidade", payload.Cidade],
     ["Bairro", payload.Bairro],
-    ["Endereco", payload["Endereço"] || payload["EndereÃ§o"]],
-    ["Tipo de imovel", d.tipo_imovel || payload.tipo_imovel],
+    ["Endereço", payload["Endereço"] || payload["EndereÃ§o"]],
+    ["Tipo de imóvel", d.tipo_imovel || payload.tipo_imovel],
     ["Quartos", d.quartos],
     ["Garagem", d.garagem],
-    ["Area privativa", d.area_privativa],
-    ["Area do terreno", d.area_terreno],
-    ["Matricula", d.matricula],
+    ["Área privativa", d.area_privativa],
+    ["Área do terreno", d.area_terreno],
+    ["Matrícula", d.matricula],
     ["Comarca", d.comarca],
-    ["Oficio", d.oficio],
-    ["Inscricao imobiliaria", d.inscricao_imobiliaria],
-    ["Valor de avaliacao", payload["Valor de avaliação"] || payload["Valor de avaliaÃ§Ã£o"]],
-    ["Preco", payload["Preço"] || payload["PreÃ§o"]],
+    ["Ofício", d.oficio],
+    ["Inscrição imobiliária", d.inscricao_imobiliaria],
+    ["Valor de avaliação", payload["Valor de avaliação"] || payload["Valor de avaliaÃ§Ã£o"]],
+    ["Preço", payload["Preço"] || payload["PreÃ§o"]],
     ["Modalidade", payload["Modalidade de venda"]],
   ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "");
 
-  let html = '<button class="calculator-open-button" type="button" data-open-calculator>Simular aquisicao</button>';
+  let html = '<button class="calculator-open-button" type="button" data-open-calculator>Simular aquisição</button>';
   html += '<div class="detail-grid">';
   rows.forEach(([label, value]) => {
     html += `<div class="detail-item"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`;
