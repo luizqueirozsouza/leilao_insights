@@ -348,7 +348,7 @@ async function loadFilters() {
   els.cityTrigger.disabled = state.loading || !state.uf;
   els.neighborhoodTrigger.disabled = state.loading || !state.uf;
   els.neighborhoodTrigger.disabled = state.loading || !state.cities.length;
-  els.modalityTrigger.disabled = state.loading || !state.neighborhoods.length;
+  els.modalityTrigger.disabled = state.loading;
   updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
   updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
@@ -612,8 +612,8 @@ async function loadAlertFilters() {
 
   els.alertCityTrigger.disabled = !state.alertFilters.uf;
   els.alertNeighborhoodTrigger.disabled = !state.alertFilters.cities.length;
-  els.alertModalityTrigger.disabled = !state.alertFilters.neighborhoods.length;
-  els.alertTypeTrigger.disabled = !state.alertFilters.modalidades.length;
+  els.alertModalityTrigger.disabled = false;
+  els.alertTypeTrigger.disabled = false;
   updateTrigger(els.alertCityTrigger, state.alertFilters.cities, "Todas", "selecionadas");
   updateTrigger(els.alertNeighborhoodTrigger, state.alertFilters.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.alertModalityTrigger, state.alertFilters.modalidades, "Todas", "selecionadas");
