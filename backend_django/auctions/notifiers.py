@@ -10,10 +10,6 @@ from django.conf import settings
 logger = logging.getLogger("auctions.notifiers")
 
 
-def _limpar_numero_whatsapp(contato: str) -> str:
-    return "".join(ch for ch in str(contato) if ch.isdigit())
-
-
 class Notifier(ABC):
     nome = "base"
 
@@ -40,53 +36,42 @@ class EmailNotifier(Notifier):
             return False
 
 
-class WhatsAppNotifier(Notifier):
-    nome = "whatsapp"
+class TelegramNotifier(Notifier):
+    nome = "telegram"
 
     def __init__(self):
-        self.token = os.getenv("WHATSAPP_TOKEN", "").strip()
-        self.phone_id = os.getenv("WHATSAPP_PHONE_ID", "").strip()
-        self.api_url = os.getenv(
-            "WHATSAPP_API_URL",
-            "https://graph.facebook.com/v18.0/{phone_id}/messages",
-        ).strip()
+        self.token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+        self.default_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+        self.api_url = os.getenv("TELEGRAM_API_URL", "https://api.telegram.org").rstrip("/")
 
     @property
     def disponivel(self) -> bool:
-        return bool(self.token and self.phone_id)
+        return bool(self.token)
 
     def enviar(self, destinatario: str, assunto: str, mensagem: str) -> bool:
         if not self.disponivel:
-            logger.info("WhatsApp nao configurado; pulando canal.")
+            logger.info("Telegram nao configurado; pulando canal.")
             return False
         try:
             import requests
 
-            numero = _limpar_numero_whatsapp(destinatario)
-            if not numero:
-                logger.warning("Numero de WhatsApp invalido: %s", destinatario)
+            chat_id = str(destinatario or self.default_chat_id).strip()
+            if not chat_id:
+                logger.warning("Telegram chat ID nao informado.")
                 return False
-            url = self.api_url.format(phone_id=self.phone_id)
+            url = f"{self.api_url}/bot{self.token}/sendMessage"
+            texto = f"{assunto}\n\n{mensagem}" if assunto else mensagem
             response = requests.post(
                 url,
-                headers={
-                    "Authorization": f"Bearer {self.token}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "messaging_product": "whatsapp",
-                    "to": numero,
-                    "type": "text",
-                    "text": {"body": mensagem},
-                },
+                json={"chat_id": chat_id, "text": texto},
                 timeout=30,
             )
             response.raise_for_status()
             return True
         except Exception:
-            logger.exception("Falha ao enviar WhatsApp para %s", destinatario)
+            logger.exception("Falha ao enviar Telegram para %s", destinatario)
             return False
 
 
 def obter_notifiers() -> list[Notifier]:
-    return [EmailNotifier(), WhatsAppNotifier()]
+    return [EmailNotifier(), TelegramNotifier()]

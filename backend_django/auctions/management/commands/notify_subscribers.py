@@ -12,7 +12,7 @@ from backend_django.auctions.models import (
     NotificacaoEnviada,
     PreferenciaAlerta,
 )
-from backend_django.auctions.notifiers import EmailNotifier, WhatsAppNotifier
+from backend_django.auctions.notifiers import EmailNotifier, TelegramNotifier
 
 logger = logging.getLogger("auctions.notify")
 
@@ -108,8 +108,7 @@ class Command(BaseCommand):
             imoveis[(a.uf, a.numero_imovel)] = a
 
         preferencias = _preferencias_ativas()
-        notifiers = [EmailNotifier(), WhatsAppNotifier()]
-        whatsup = notifiers[1]
+        telegram = TelegramNotifier()
 
         enviados = 0
         sem_match = 0
@@ -150,10 +149,10 @@ class Command(BaseCommand):
                             f"Alerta de leilão — {_descrever_evento(evento['tipo_evento'])}",
                             mensagem,
                         )
-                if pref.canal_whatsapp and pref.contato_whatsapp:
-                    canais_ok.append("whatsapp")
+                if pref.canal_telegram and (pref.contato_telegram or telegram.default_chat_id):
+                    canais_ok.append("telegram")
                     if not dry_run:
-                        whatsup.enviar(pref.contato_whatsapp, "", mensagem)
+                        telegram.enviar(pref.contato_telegram, "", mensagem)
 
                 if not dry_run and canais_ok:
                     with transaction.atomic():

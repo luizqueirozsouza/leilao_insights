@@ -119,8 +119,8 @@ const els = {
   alertTypeTrigger: document.querySelector("#alert-type-trigger"),
   alertTypePanel: document.querySelector("#alert-type-panel"),
   alertEmail: document.querySelector("#alert-email"),
-  alertWhatsapp: document.querySelector("#alert-whatsapp"),
-  alertWhatsappNum: document.querySelector("#alert-whatsapp-num"),
+  alertTelegram: document.querySelector("#alert-telegram"),
+  alertTelegramId: document.querySelector("#alert-telegram-id"),
   alertSubmit: document.querySelector("#alert-submit"),
   alertsList: document.querySelector("#alerts-list"),
   detailModal: document.querySelector("#detail-modal"),
@@ -626,7 +626,7 @@ function renderAdminOverview(data) {
       alert.modalidades && alert.modalidades.length ? `Modalidades: ${alert.modalidades.join(", ")}` : null,
       alert.tipos && alert.tipos.length ? `Tipos: ${alert.tipos.join(", ")}` : null,
     ].filter(Boolean);
-    const channels = [alert.canal_email ? "E-mail" : null, alert.canal_whatsapp ? "WhatsApp" : null].filter(Boolean);
+    const channels = [alert.canal_email ? "E-mail" : null, alert.canal_telegram ? "Telegram" : null].filter(Boolean);
     return `<tr>
       <td><strong>${escapeHtml(alert.nome || "Usuário")}</strong><small>${escapeHtml(alert.usuario || "-")}</small></td>
       <td><small>${escapeHtml(filters.join(" · "))}</small></td>
@@ -869,7 +869,7 @@ function renderAlertas(list) {
     ].filter(Boolean);
     const canais = [];
     if (pref.canal_email) canais.push("e-mail");
-    if (pref.canal_whatsapp) canais.push("WhatsApp");
+    if (pref.canal_telegram) canais.push("Telegram");
     row.innerHTML = `<div class="alert-row-info">${chips.join(" · ")}</div><div class="alert-row-can">${canais.join(" / ") || "sem canal"}</div>`;
     const del = document.createElement("button");
     del.type = "button";
@@ -898,7 +898,8 @@ async function openAlertas() {
   els.alertsStatus.hidden = true;
   els.alertForm.reset();
   els.alertEmail.checked = true;
-  els.alertWhatsapp.checked = false;
+  els.alertTelegram.checked = false;
+  els.alertTelegramId.value = "";
   state.alertFilters = { uf: "", cities: [], neighborhoods: [], modalidades: [], tipos: [] };
   fillAlertUfOptions();
   try {
@@ -920,8 +921,8 @@ async function handleAlertSubmit(event) {
     modalidades: state.alertFilters.modalidades,
     tipos: state.alertFilters.tipos,
     canal_email: els.alertEmail.checked,
-    canal_whatsapp: els.alertWhatsapp.checked,
-    contato_whatsapp: els.alertWhatsappNum.value.trim(),
+    canal_telegram: els.alertTelegram.checked,
+    contato_telegram: els.alertTelegramId.value.trim(),
   };
   try {
     await api("/preferencias", {}, { method: "POST", body });

@@ -104,8 +104,8 @@ class PreferenciaAlerta(models.Model):
     modalidades = models.JSONField(default=list, blank=True, verbose_name="Modalidades")
     tipos = models.JSONField(default=list, blank=True, verbose_name="Tipos de imóvel")
     canal_email = models.BooleanField(default=True, verbose_name="Notificar por e-mail")
-    canal_whatsapp = models.BooleanField(default=False, verbose_name="Notificar por WhatsApp")
-    contato_whatsapp = models.CharField(max_length=20, blank=True, default='', verbose_name="WhatsApp (DDI+DDD+número)")
+    canal_telegram = models.BooleanField(default=False, verbose_name="Notificar por Telegram")
+    contato_telegram = models.CharField(max_length=100, blank=True, default='', verbose_name="Telegram (chat ID)")
     criada_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:

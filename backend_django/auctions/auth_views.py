@@ -39,8 +39,8 @@ def _serializar_preferencia(pref):
         'modalidades': pref.modalidades or [],
         'tipos': pref.tipos or [],
         'canal_email': pref.canal_email,
-        'canal_whatsapp': pref.canal_whatsapp,
-        'contato_whatsapp': pref.contato_whatsapp,
+        'canal_telegram': pref.canal_telegram,
+        'contato_telegram': pref.contato_telegram,
     }
 
 
@@ -172,7 +172,7 @@ def api_admin_overview(request):
             'modalidades': pref.modalidades or [],
             'tipos': pref.tipos or [],
             'canal_email': pref.canal_email,
-            'canal_whatsapp': pref.canal_whatsapp,
+            'canal_telegram': pref.canal_telegram,
             'criada_em': pref.criada_em.isoformat() if pref.criada_em else None,
         })
 
@@ -274,8 +274,8 @@ def api_preferencias(request):
             modalidades=body.get('modalidades') or [],
             tipos=body.get('tipos') or [],
             canal_email=bool(body.get('canal_email', True)),
-            canal_whatsapp=bool(body.get('canal_whatsapp', False)),
-            contato_whatsapp=(body.get('contato_whatsapp') or '').strip(),
+            canal_telegram=bool(body.get('canal_telegram', False)),
+            contato_telegram=(body.get('contato_telegram') or '').strip(),
         )
         return JsonResponse({'preferencia': _serializar_preferencia(pref)}, status=201)
 
@@ -305,8 +305,8 @@ def api_preferencias_id(request, pref_id):
         pref.modalidades = body.get('modalidades', pref.modalidades) or []
         pref.tipos = body.get('tipos', pref.tipos) or []
         pref.canal_email = bool(body.get('canal_email', pref.canal_email))
-        pref.canal_whatsapp = bool(body.get('canal_whatsapp', pref.canal_whatsapp))
-        pref.contato_whatsapp = (body.get('contato_whatsapp', pref.contato_whatsapp) or '').strip()
+        pref.canal_telegram = bool(body.get('canal_telegram', pref.canal_telegram))
+        pref.contato_telegram = (body.get('contato_telegram', pref.contato_telegram) or '').strip()
         pref.save()
         return JsonResponse({'preferencia': _serializar_preferencia(pref)})
 

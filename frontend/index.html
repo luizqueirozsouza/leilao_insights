@@ -282,7 +282,7 @@
       <div class="modal modal-lg" role="dialog" aria-modal="true">
         <button class="modal-close" id="alerts-close" type="button" aria-label="Fechar">&times;</button>
         <h2>Meus alertas</h2>
-        <p class="modal-sub">Receba notificacoes por e-mail/WhatsApp quando houver imoveis novos, removidos ou alterados que correspondam aos seus filtros.</p>
+        <p class="modal-sub">Receba notificações por e-mail/Telegram quando houver imóveis novos, removidos ou alterados que correspondam aos seus filtros.</p>
         <div class="alerts-status" id="alerts-status" hidden></div>
         <form id="alert-form" class="alert-form">
           <div class="alert-grid">
@@ -313,10 +313,10 @@
           </div>
           <div class="alert-channels">
             <label class="channel"><input type="checkbox" id="alert-email" checked /> E-mail</label>
-            <label class="channel"><input type="checkbox" id="alert-whatsapp" /> WhatsApp</label>
-            <label class="auth-field wa-field">
-              <span>WhatsApp (ex.: 5511999999999)</span>
-              <input type="text" id="alert-whatsapp-num" placeholder="5511999999999" />
+            <label class="channel"><input type="checkbox" id="alert-telegram" /> Telegram</label>
+            <label class="auth-field telegram-field">
+              <span>Telegram chat ID (opcional)</span>
+              <input type="text" id="alert-telegram-id" placeholder="Ex.: 355932694" />
             </label>
           </div>
           <button class="auth-submit" id="alert-submit" type="submit">Salvar alerta</button>
