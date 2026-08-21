@@ -1072,6 +1072,7 @@ input {
 .calculator-summary div {
   display: grid;
   gap: 5px;
+  text-align: center;
 }
 
 .calculator-summary span {
@@ -1085,6 +1086,7 @@ input {
   color: #fff;
   font-size: 14px;
   font-weight: 800;
+  text-align: center;
 }
 
 .calculator-summary strong.negative {
