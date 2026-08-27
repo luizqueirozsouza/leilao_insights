@@ -13,11 +13,11 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from pipeline.utils import configure_logging, list_today_csvs, df_from_csv_file, uf_from_path
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+from pipeline.utils import configure_logging, list_today_csvs, df_from_csv_file, uf_from_path
 
 BASE = "https://venda-imoveis.caixa.gov.br"
 
