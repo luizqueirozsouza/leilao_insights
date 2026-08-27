@@ -11,6 +11,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from pipeline.utils import validate_caixa_csv_bytes
+
 BASE = "https://venda-imoveis.caixa.gov.br"
 UFS = [
     "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS",
@@ -149,6 +151,7 @@ def download_csv(
             )
 
         response.raise_for_status()
+        validate_caixa_csv_bytes(response.content)
         file_path.write_bytes(response.content)
     finally:
         if owns_session:

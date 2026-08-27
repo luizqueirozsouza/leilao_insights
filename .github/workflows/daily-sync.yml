@@ -75,7 +75,17 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: |
           PORT="${VPS_PORT:-22}"
-          ssh-keyscan -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+          for ATTEMPT in 1 2 3; do
+            echo "Trust VPS host key: attempt $ATTEMPT/3 (host=$VPS_HOST port=$PORT)"
+            if ssh-keyscan -T 10 -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Trust VPS host key failed after 3 attempts (host=$VPS_HOST port=$PORT)"
+          exit 1
 
       - name: Upload snapshot to VPS
         env:
@@ -84,7 +94,18 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: |
           PORT="${VPS_PORT:-22}"
-          scp -P "$PORT" "snapshot-${RUN_DATE}.tgz" "$VPS_USER@$VPS_HOST:/tmp/snapshot-${RUN_DATE}.tgz"
+          SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectionAttempts=1)
+          for ATTEMPT in 1 2 3; do
+            echo "Upload snapshot to VPS: attempt $ATTEMPT/3 (host=$VPS_HOST port=$PORT)"
+            if scp "${SSH_OPTS[@]}" -P "$PORT" "snapshot-${RUN_DATE}.tgz" "$VPS_USER@$VPS_HOST:/tmp/snapshot-${RUN_DATE}.tgz"; then
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Snapshot upload failed after 3 attempts (host=$VPS_HOST port=$PORT)"
+          exit 1
 
       - name: Ingest snapshot on VPS
         env:
@@ -93,16 +114,27 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: |
           PORT="${VPS_PORT:-22}"
-          ssh -p "$PORT" "$VPS_USER@$VPS_HOST" "
-            set -e
-            CONTAINER=\$(docker ps --format '{{.Names}}' | grep '^projetos_leilao_insights-backend-' | head -n 1)
-            test -n \"\$CONTAINER\" || (echo 'Backend container not found' && exit 1)
-            docker cp /tmp/snapshot-${RUN_DATE}.tgz \"\$CONTAINER\":/tmp/snapshot-${RUN_DATE}.tgz
-            docker exec \"\$CONTAINER\" sh -lc '
-              mkdir -p /app/data &&
-              tar -xzf /tmp/snapshot-${RUN_DATE}.tgz -C /app &&
-              uv run python pipeline/run_daily_pipeline.py --date ${RUN_DATE} --verbose --skip-extract &&
+          SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectionAttempts=1)
+          for ATTEMPT in 1 2 3; do
+            echo "Ingest snapshot on VPS: attempt $ATTEMPT/3 (host=$VPS_HOST port=$PORT)"
+            if ssh "${SSH_OPTS[@]}" -p "$PORT" "$VPS_USER@$VPS_HOST" "
+              set -e
+              CONTAINER=\$(docker ps --format '{{.Names}}' | grep '^projetos_leilao_insights-backend-' | head -n 1)
+              test -n \"\$CONTAINER\" || (echo 'Backend container not found' && exit 1)
+              docker cp /tmp/snapshot-${RUN_DATE}.tgz \"\$CONTAINER\":/tmp/snapshot-${RUN_DATE}.tgz
+              docker exec \"\$CONTAINER\" sh -lc '
+                mkdir -p /app/data &&
+                tar -xzf /tmp/snapshot-${RUN_DATE}.tgz -C /app &&
+                uv run python pipeline/run_daily_pipeline.py --date ${RUN_DATE} --verbose --skip-extract &&
+                rm -f /tmp/snapshot-${RUN_DATE}.tgz
+              '
               rm -f /tmp/snapshot-${RUN_DATE}.tgz
-            '
-            rm -f /tmp/snapshot-${RUN_DATE}.tgz
-          "
+            "; then
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Snapshot ingestion failed after 3 attempts (host=$VPS_HOST port=$PORT)"
+          exit 1

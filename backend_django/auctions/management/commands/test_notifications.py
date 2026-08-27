@@ -15,6 +15,7 @@ class Command(BaseCommand):
         parser.add_argument("--subject", default="Teste de notificacao — Leilao Insights")
         parser.add_argument("--message", default="Esta e uma mensagem de teste do Leilao Insights.")
         parser.add_argument("--dry-run", action="store_true", help="Apenas mostra os canais, sem enviar.")
+        parser.add_argument("--show-message", action="store_true", help="Exibe assunto e mensagem antes do envio.")
 
     def handle(self, *args, **options):
         email = (options.get("email") or "").strip()
@@ -23,9 +24,14 @@ class Command(BaseCommand):
         subject = options["subject"]
         message = options["message"]
         dry_run = options.get("dry_run", False)
+        show_message = options.get("show_message", False)
 
         if not email and not telegram_requested:
             raise CommandError("Informe --email, --telegram ou ambos.")
+
+        if show_message or dry_run:
+            self.stdout.write(f"Assunto: {subject}")
+            self.stdout.write(f"Mensagem:\n{message}")
 
         failures = 0
         if email:

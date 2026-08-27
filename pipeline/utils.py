@@ -68,6 +68,16 @@ HEADER_MARKERS = [
     "Link",
 ]
 
+HEADER_KEY_MARKERS = [
+    "Nº do imóvel",
+    "N° do imóvel",
+    "N do imóvel",
+    "No do imóvel",
+    "N do imvel",
+    "NÂº do imÃ³vel",
+    "NÂ° do imÃ³vel",
+]
+
 CANONICAL_HEADER_MAP = {
     "Nº do imóvel": KEY,
     "N° do imóvel": KEY,
@@ -82,6 +92,10 @@ CANONICAL_HEADER_MAP = {
     "Descrição": "Descrição",
     "DescriÃ§Ã£o": "Descrição",
 }
+
+
+class CsvValidationError(ValueError):
+    """Indicates that a Caixa response is not a usable auction CSV."""
 
 
 def snapshot_dir(dt: str) -> Path:
@@ -132,6 +146,7 @@ def canonicalize_header(col: str) -> str:
     aliases = {
         "no do imovel": KEY,
         "n do imovel": KEY,
+        "n do imvel": KEY,
         "preco": "Preço",
         "valor de avaliacao": "Valor de avaliação",
         "endereco": "Endereço",
@@ -140,14 +155,25 @@ def canonicalize_header(col: str) -> str:
     return aliases.get(normalized, stripped)
 
 
+def _normalize_header_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.lower())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = normalized.replace("º", "o").replace("°", "o")
+    normalized = normalized.replace("â", "a").replace("ã", "a")
+    normalized = normalized.replace("³", "3")
+    return re.sub(r"[^a-z0-9]+", " ", normalized).strip()
+
+
 def find_header_line_index(lines: list[str]) -> int:
+    normalized_markers = [_normalize_header_text(marker) for marker in HEADER_MARKERS]
+    normalized_key_markers = {
+        _normalize_header_text(marker) for marker in HEADER_KEY_MARKERS
+    }
     for i, line in enumerate(lines):
-        score = 0
-        low = line.lower()
-        for marker in HEADER_MARKERS:
-            if marker.lower() in low:
-                score += 1
-        if score >= 3:
+        normalized_line = _normalize_header_text(line)
+        score = sum(marker in normalized_line for marker in normalized_markers)
+        has_key = any(marker in normalized_line for marker in normalized_key_markers)
+        if has_key and score >= 3:
             return i
     return -1
 
@@ -155,19 +181,27 @@ def find_header_line_index(lines: list[str]) -> int:
 def parse_caixa_csv_text(text: str) -> pd.DataFrame:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     lines = text.split("\n")
+    if not text.strip():
+        raise CsvValidationError("Resposta vazia recebida.")
+    first_non_empty = next((line.lstrip() for line in lines if line.strip()), "")
+    if first_non_empty.startswith("<") or "<html" in text[:1000].lower():
+        raise CsvValidationError("Resposta nao-CSV recebida (HTML).")
     header_idx = find_header_line_index(lines)
     if header_idx == -1:
-        raise ValueError("Não encontrei a linha de cabeçalho (colunas).")
+        raise CsvValidationError("Nao encontrei a linha de cabecalho (colunas).")
 
     csv_body = "\n".join(lines[header_idx:]).strip()
 
-    df = pd.read_csv(
-        io.StringIO(csv_body),
-        sep=";",
-        engine="python",
-        dtype=str,
-        skip_blank_lines=True,
-    )
+    try:
+        df = pd.read_csv(
+            io.StringIO(csv_body),
+            sep=";",
+            engine="python",
+            dtype=str,
+            skip_blank_lines=True,
+        )
+    except (pd.errors.EmptyDataError, pd.errors.ParserError) as exc:
+        raise CsvValidationError("CSV invalido ou sem linhas de dados.") from exc
 
     df.columns = [canonicalize_header(str(c)) for c in df.columns]
     df = df.loc[:, [c for c in df.columns if c and not re.fullmatch(r"\s*", str(c))]]
@@ -220,10 +254,22 @@ def parse_caixa_csv_text(text: str) -> pd.DataFrame:
     if rename_map:
         df = df.rename(columns=rename_map)
 
+    if KEY not in df.columns:
+        raise CsvValidationError(
+            f"CSV sem coluna chave: {KEY}. Colunas recebidas: {list(df.columns)}"
+        )
+
     if "UF" in df.columns:
         df["UF"] = df["UF"].str.upper().str.strip()
 
     return df
+
+
+def validate_caixa_csv_bytes(raw: bytes) -> None:
+    """Validate a downloaded response without exposing its body in errors."""
+    if not raw or not raw.strip():
+        raise CsvValidationError("Resposta vazia recebida.")
+    parse_caixa_csv_text(decode_bytes(raw))
 
 
 def fingerprint_row(row: pd.Series) -> str:
@@ -336,7 +382,12 @@ def uf_from_path(csv_path: Path) -> str:
 
 def df_from_csv_file(csv_path: Path) -> pd.DataFrame:
     text = decode_bytes(csv_path.read_bytes())
-    df = parse_caixa_csv_text(text)
+    try:
+        df = parse_caixa_csv_text(text)
+    except CsvValidationError as exc:
+        raise CsvValidationError(
+            f"UF={uf_from_path(csv_path)} arquivo={csv_path}: {exc}"
+        ) from exc
 
     if "UF" not in df.columns or df["UF"].isna().all():
         df["UF"] = uf_from_path(csv_path)

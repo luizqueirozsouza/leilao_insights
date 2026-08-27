@@ -31,6 +31,28 @@ def _pref_casa(pref: PreferenciaAlerta, imovel: Auction) -> bool:
     return True
 
 
+def _payload_value(payload: dict, *keys: str):
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and str(value).strip():
+            return value
+    return ""
+
+
+def _pref_payload_casa(pref: PreferenciaAlerta, payload: dict, uf: str) -> bool:
+    if pref.uf and pref.uf.upper() != (uf or "").upper():
+        return False
+    if pref.cidades and _payload_value(payload, "Cidade") not in pref.cidades:
+        return False
+    if pref.bairros and _payload_value(payload, "Bairro") not in pref.bairros:
+        return False
+    if pref.modalidades and _payload_value(payload, "Modalidade de venda") not in pref.modalidades:
+        return False
+    if pref.tipos and _payload_value(payload, "tipo_imovel", "Tipo de imóvel", "Tipo de imovel") not in pref.tipos:
+        return False
+    return True
+
+
 def _descrever_evento(tipo_evento: str) -> str:
     return {
         "ENTER": "Novo imóvel adicionado",
@@ -39,7 +61,7 @@ def _descrever_evento(tipo_evento: str) -> str:
     }.get(tipo_evento, tipo_evento)
 
 
-def _montar_mensagem(evento: dict, imovel: Auction | None) -> str:
+def _montar_mensagem(evento: dict, imovel: Auction | None, payload: dict | None = None) -> str:
     base = _descrever_evento(evento["tipo_evento"])
     linhas = [f"🔔 {base}"]
     linhas.append(f"Imóvel: {evento['numero_imovel']} ({evento['uf']})")
@@ -56,6 +78,18 @@ def _montar_mensagem(evento: dict, imovel: Auction | None) -> str:
             linhas.append(f"Preço: R$ {imovel.preco}")
         if imovel.link:
             linhas.append(f"Detalhes: {imovel.link}")
+    elif payload:
+        for label, keys in (
+            ("Cidade", ("Cidade",)),
+            ("Bairro", ("Bairro",)),
+            ("Modalidade", ("Modalidade de venda",)),
+            ("Tipo", ("tipo_imovel", "Tipo de imóvel", "Tipo de imovel")),
+            ("Preço", ("Preço", "Pre\u00e7o")),
+            ("Detalhes", ("Link de acesso",)),
+        ):
+            value = _payload_value(payload, *keys)
+            if value:
+                linhas.append(f"{label}: {value}")
     return "\n".join(linhas)
 
 
@@ -77,22 +111,30 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--date", type=str, default=None, help="Data em YYYY-MM-DD. Padrao: hoje.")
         parser.add_argument("--dry-run", action="store_true", help="Nao envia, apenas lista o que seria enviado.")
+        parser.add_argument("--show-message", action="store_true", help="Exibe a mensagem completa de cada alerta.")
 
     def handle(self, *args, **options):
         dt = options.get("date") or date.today().isoformat()
         dry_run = options.get("dry_run", False)
+        show_message = options.get("show_message", False)
 
         with connection.cursor() as cur:
             cur.execute(
                 """
-                SELECT uf, numero_imovel, tipo_evento, after_json
+                SELECT uf, numero_imovel, tipo_evento, before_json, after_json
                 FROM changes
-                WHERE dt = %s
+                WHERE dt = %s AND tipo_evento IN ('ENTER', 'EXIT')
                 """,
                 (dt,),
             )
             eventos = [
-                {"uf": r[0], "numero_imovel": r[1], "tipo_evento": r[2], "after_json": r[3]}
+                {
+                    "uf": r[0],
+                    "numero_imovel": r[1],
+                    "tipo_evento": r[2],
+                    "before_json": r[3] or {},
+                    "after_json": r[4] or {},
+                }
                 for r in cur.fetchall()
             ]
 
@@ -118,15 +160,12 @@ class Command(BaseCommand):
             imovel = imoveis.get(chave)
 
             for pref in preferencias:
+                payload = evento["before_json"] if evento["tipo_evento"] == "EXIT" else evento["after_json"]
                 if imovel:
                     if not _pref_casa(pref, imovel):
                         continue
                 else:
-                    # Imovel nao esta mais em current_imoveis (ex. EXIT);
-                    # casa apenas pela UF quando a preferencia nao restringe outros campos.
-                    if pref.uf and pref.uf.upper() != evento["uf"].upper():
-                        continue
-                    if pref.cidades or pref.bairros or pref.modalidades or pref.tipos:
+                    if not _pref_payload_casa(pref, payload, evento["uf"]):
                         continue
 
                 ja_enviado = NotificacaoEnviada.objects.filter(
@@ -139,7 +178,9 @@ class Command(BaseCommand):
                 if ja_enviado:
                     continue
 
-                mensagem = _montar_mensagem(evento, imovel)
+                mensagem = _montar_mensagem(evento, imovel, payload)
+                if show_message or dry_run:
+                    self.stdout.write(f"\n--- Mensagem para {pref.usuario.email} ---\n{mensagem}\n--- Fim da mensagem ---")
                 canais_ok = []
                 if pref.canal_email and pref.usuario.email:
                     canais_ok.append("email")
