@@ -1,0 +1,8 @@
+# Agendador diario do sync no GitHub.
+# 11:00 UTC = 08:00 America/Sao_Paulo. Dispara o workflow daily-sync.yml.
+# O download dos CSVs roda no runner do GitHub (VPS bloqueada pela Caixa);
+# este cron apenas aciona a API do GitHub, sem tocar na Caixa.
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+0 11 * * * root cd /app && uv run python pipeline/trigger_github_sync.py --verbose >> /var/log/leilao-sync.log 2>&1

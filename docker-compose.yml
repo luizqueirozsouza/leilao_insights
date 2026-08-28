@@ -5,7 +5,7 @@ services:
     restart: always
     env_file:
       - .env
-    command: ["uv", "run", "uvicorn", "backend_django.core.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["sh", "-c", "cron && exec uv run uvicorn backend_django.core.asgi:application --host 0.0.0.0 --port 8000"]
     expose:
       - "8000"
     networks:
