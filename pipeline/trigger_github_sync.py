@@ -7,14 +7,18 @@ import sys
 import time
 from pathlib import Path
 
+# Registra /app no sys.path ANTES de qualquer import de modulos internos
+# (pipeline.*). Sem isso, ao invocar `python pipeline/<script>.py`, o CWD
+# /app nao vai para o path, e o `from pipeline.notify_telegram import ...`
+# abaixo quebra com ModuleNotFoundError (bug do agendador diario).
 import requests
 from dotenv import load_dotenv
-
-from pipeline.notify_telegram import send_telegram_message
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+from pipeline.notify_telegram import send_telegram_message
 
 load_dotenv()
 

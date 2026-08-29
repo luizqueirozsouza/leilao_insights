@@ -5,4 +5,4 @@
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
-0 11 * * * root cd /app && uv run python pipeline/trigger_github_sync.py --verbose >> /var/log/leilao-sync.log 2>&1
+0 11 * * * root cd /app && uv run python -m pipeline.trigger_github_sync --verbose >> /var/log/leilao-sync.log 2>&1
