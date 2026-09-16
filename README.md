@@ -183,7 +183,7 @@ As variaveis de banco (`host`, `port`, `database`, `user`, `password`, `sslmode`
 
 ### Comando do cron (EasyPanel)
 
-Executar diariamente as 08:00 BRT:
+Executar diariamente as 09:00 BRT:
 
 ```bash
 uv run python pipeline/run_daily_pipeline.py --verbose
