@@ -1,0 +1,128 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: backend-ci-cd
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync Python dependencies
+        run: uv sync --locked
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover tests -v
+
+      - name: Smoke check pipeline imports
+        run: uv run python -c "import pipeline.extrai, pipeline.enriquece, pipeline.ingest_dlt, pipeline.run_daily_pipeline"
+
+  deploy:
+    name: Deploy to EasyPanel
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Trigger EasyPanel deployment
+        env:
+          DEPLOY_TRIGGER_URL: ${{ secrets.DEPLOY_TRIGGER_URL }}
+        run: |
+          test -n "$DEPLOY_TRIGGER_URL" || (echo "Missing secret DEPLOY_TRIGGER_URL" && exit 1)
+          echo "Triggering EasyPanel deploy..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_TRIGGER_URL" || echo "CURL_ERROR")
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          CODE=$(echo "$RESPONSE" | tail -n 1)
+          echo "Response: $BODY (HTTP $CODE)"
+          case "$CODE" in
+            200|201|202) echo "Deploy triggered successfully";;
+            *) echo "::error::EasyPanel deploy trigger failed (HTTP $CODE)"; exit 1;;
+          esac
+
+      - name: Wait for build
+        run: sleep 90
+
+      - name: Configure SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Trust VPS host key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          for ATTEMPT in 1 2 3; do
+            if ssh-keyscan -T 10 -p "$PORT" "$VPS_HOST" >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Trust VPS host key failed after 3 attempts (host=$VPS_HOST port=$PORT)"
+          exit 1
+
+      - name: Run migrations on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${VPS_PORT:-22}"
+          SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectionAttempts=1)
+          for ATTEMPT in 1 2 3; do
+            echo "Run migrations on VPS: attempt $ATTEMPT/3"
+            if ssh "${SSH_OPTS[@]}" -p "$PORT" "$VPS_USER@$VPS_HOST" "
+              set -e
+              CONTAINER=\$(docker ps --format '{{.Names}}' | grep '^projetos_leilao_insights-backend-' | head -n 1)
+              test -n \"\$CONTAINER\" || (echo 'Backend container not found' && exit 1)
+              docker exec \"\$CONTAINER\" sh -lc 'cd /app && uv run python backend_django/manage.py migrate'
+            "; then
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          echo "::error::Migrations failed after 3 attempts (host=$VPS_HOST port=$PORT)"
+          exit 1
+
+      - name: Health check API
+        run: |
+          API_URL="https://api-leilao.kb4x5f.easypanel.host/api/stats"
+          for ATTEMPT in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$API_URL" || echo "000")
+            echo "Health check attempt $ATTEMPT/10: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "API healthy"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::API health check failed after 10 attempts"
+          exit 1
