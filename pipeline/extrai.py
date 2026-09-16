@@ -11,9 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from curl_cffi import requests
 
 from pipeline.utils import validate_caixa_csv_bytes
 
@@ -82,18 +80,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def create_session(timeout: int, logger: logging.Logger) -> requests.Session:
-    session = requests.Session()
-    retry = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        backoff_factor=0.8,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
+    retry = requests.RetryStrategy(
+        count=3,
+        delay=0.8,
+        backoff="exponential",
     )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
+    session = requests.Session(
+        impersonate="chrome",
+        timeout=timeout,
+        retry=retry,
+    )
     session.headers.update(BROWSER_HEADERS)
 
     warmup_urls = [

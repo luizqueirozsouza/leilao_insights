@@ -9,9 +9,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from curl_cffi import requests
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -38,16 +36,16 @@ from backend_django.auctions.caixa_detail import parse_detalhe_html  # noqa: E40
 
 
 def criar_sessao(timeout: int, logger: logging.Logger) -> requests.Session:
-    session = requests.Session()
-    retry = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        backoff_factor=0.5,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
+    retry = requests.RetryStrategy(
+        count=3,
+        delay=0.5,
+        backoff="exponential",
     )
-    session.mount("https://", HTTPAdapter(max_retries=retry))
+    session = requests.Session(
+        impersonate="chrome",
+        timeout=timeout,
+        retry=retry,
+    )
     session.headers.update(BROWSER_HEADERS)
     return session
 

@@ -17,4 +17,5 @@ dependencies = [
     "django-environ>=0.13.0",
     "beautifulsoup4>=4.12.3",
     "lxml>=5.2.0",
+    "curl-cffi>=0.16.3",
 ]
