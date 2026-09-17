@@ -52,9 +52,6 @@ const els = {
   properties: document.querySelector("#properties"),
   status: document.querySelector("#status"),
   template: document.querySelector("#property-template"),
-  demoBanner: document.querySelector("#demo-banner"),
-  demoText: document.querySelector("#demo-text"),
-  demoCta: document.querySelector("#demo-cta"),
   accountBar: document.querySelector("#account-bar"),
   accountBtn: document.querySelector("#account-btn"),
   alertasBtn: document.querySelector("#alertas-btn"),
@@ -74,10 +71,6 @@ const els = {
   userAvatar: document.querySelector("#user-avatar"),
   userName: document.querySelector("#user-name"),
   userEmail: document.querySelector("#user-email"),
-  userSubscriptionStatus: document.querySelector("#user-subscription-status"),
-  userSubscriptionStart: document.querySelector("#user-subscription-start"),
-  userSubscriptionEnd: document.querySelector("#user-subscription-end"),
-  userSubscriptionNote: document.querySelector("#user-subscription-note"),
   userAlertSummary: document.querySelector("#user-alert-summary"),
   userAlertsButton: document.querySelector("#user-alerts-button"),
   userLogout: document.querySelector("#user-logout"),
@@ -119,8 +112,6 @@ const els = {
   alertTypeTrigger: document.querySelector("#alert-type-trigger"),
   alertTypePanel: document.querySelector("#alert-type-panel"),
   alertEmail: document.querySelector("#alert-email"),
-  alertTelegram: document.querySelector("#alert-telegram"),
-  alertTelegramId: document.querySelector("#alert-telegram-id"),
   alertSubmit: document.querySelector("#alert-submit"),
   alertsList: document.querySelector("#alerts-list"),
   detailModal: document.querySelector("#detail-modal"),
@@ -486,8 +477,6 @@ async function loadStatsAndProperties() {
     els.statsMedian.textContent = formatMoney(filteredStats.median);
     els.lastUpdated.textContent = stats.last_updated || "-";
 
-    renderDemoBanner(stats.em_demo);
-
     renderProperties(properties);
   } catch (error) {
     setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
@@ -508,21 +497,8 @@ async function search() {
 
 // ---------- Sessao / auth ----------
 
-function isAssinante() {
-  return !!(state.session && state.session.autenticado && state.session.assinatura && state.session.assinatura.ativa);
-}
-
 function isAuthenticated() {
   return !!(state.session && state.session.autenticado);
-}
-
-function renderDemoBanner(isDemo) {
-  const authenticated = isAuthenticated();
-  els.demoBanner.hidden = !isDemo || isAssinante();
-  els.demoCta.hidden = authenticated;
-  els.demoText.innerHTML = authenticated
-    ? "Voce esta vendo uma amostra de imoveis. <strong>Assine</strong> para acessar o acervo completo e receber alertas de novos imoveis."
-    : "Voce esta vendo uma amostra de imoveis. <strong>Crie sua conta e assine</strong> para acessar o acervo completo e receber alertas de novos imoveis.";
 }
 
 function renderAuthOptions() {
@@ -534,7 +510,6 @@ function renderAuthOptions() {
 
 function renderAccount() {
   renderAuthOptions();
-  renderDemoBanner(false);
   if (!state.session || !state.session.autenticado) {
     els.accountBtn.textContent = "Entrar";
     els.accountBtn.onclick = () => openAuth("login");
@@ -543,7 +518,7 @@ function renderAccount() {
   }
   els.accountBtn.textContent = state.session.nome || "Minha conta";
   els.accountBtn.onclick = () => openUserPanel();
-  els.alertasBtn.hidden = !isAssinante();
+  els.alertasBtn.hidden = !isAuthenticated();
 }
 
 function formatDate(value) {
@@ -562,23 +537,15 @@ function renderUserPanel() {
   const session = state.session;
   if (!session || !session.autenticado) return;
   const name = session.nome || "Usuário";
-  const subscription = session.assinatura;
   const preferences = session.preferencias || [];
   els.userName.textContent = name;
   els.userEmail.textContent = session.email || "-";
   els.userAvatar.textContent = name.trim().charAt(0).toUpperCase() || "U";
-  els.userSubscriptionStatus.textContent = subscription && subscription.ativa ? "Ativa" : "Inativa";
-  els.userSubscriptionStatus.className = `subscription-badge ${subscription && subscription.ativa ? "active" : "inactive"}`;
-  els.userSubscriptionStart.textContent = formatDate(subscription && subscription.data_inicio);
-  els.userSubscriptionEnd.textContent = formatDate(subscription && subscription.data_fim);
-  els.userSubscriptionNote.textContent = subscription && subscription.ativa
-    ? "Sua conta tem acesso ao acervo completo e aos alertas."
-    : "A assinatura ativa libera o acervo completo e o recebimento de alertas.";
   els.userAlertSummary.textContent = preferences.length === 1
     ? "Você possui 1 alerta configurado."
     : `Você possui ${preferences.length} alertas configurados.`;
-  els.userAlertsButton.disabled = !isAssinante();
-  els.userAlertsButton.textContent = isAssinante() ? "Gerenciar alertas" : "Exige assinatura";
+  els.userAlertsButton.disabled = false;
+  els.userAlertsButton.textContent = "Gerenciar alertas";
   els.adminEntryButton.hidden = !session.administrador;
 }
 
@@ -626,7 +593,7 @@ function renderAdminOverview(data) {
       alert.modalidades && alert.modalidades.length ? `Modalidades: ${alert.modalidades.join(", ")}` : null,
       alert.tipos && alert.tipos.length ? `Tipos: ${alert.tipos.join(", ")}` : null,
     ].filter(Boolean);
-    const channels = [alert.canal_email ? "E-mail" : null, alert.canal_telegram ? "Telegram" : null].filter(Boolean);
+    const channels = [alert.canal_email !== false ? "E-mail" : null].filter(Boolean);
     return `<tr>
       <td><strong>${escapeHtml(alert.nome || "Usuário")}</strong><small>${escapeHtml(alert.usuario || "-")}</small></td>
       <td><small>${escapeHtml(filters.join(" · "))}</small></td>
@@ -869,7 +836,6 @@ function renderAlertas(list) {
     ].filter(Boolean);
     const canais = [];
     if (pref.canal_email) canais.push("e-mail");
-    if (pref.canal_telegram) canais.push("Telegram");
     row.innerHTML = `<div class="alert-row-info">${chips.join(" · ")}</div><div class="alert-row-can">${canais.join(" / ") || "sem canal"}</div>`;
     const del = document.createElement("button");
     del.type = "button";
@@ -898,8 +864,6 @@ async function openAlertas() {
   els.alertsStatus.hidden = true;
   els.alertForm.reset();
   els.alertEmail.checked = true;
-  els.alertTelegram.checked = false;
-  els.alertTelegramId.value = "";
   state.alertFilters = { uf: "", cities: [], neighborhoods: [], modalidades: [], tipos: [] };
   fillAlertUfOptions();
   try {
@@ -921,8 +885,6 @@ async function handleAlertSubmit(event) {
     modalidades: state.alertFilters.modalidades,
     tipos: state.alertFilters.tipos,
     canal_email: els.alertEmail.checked,
-    canal_telegram: els.alertTelegram.checked,
-    contato_telegram: els.alertTelegramId.value.trim(),
   };
   try {
     await api("/preferencias", {}, { method: "POST", body });
@@ -1234,7 +1196,6 @@ function bindEvents() {
   els.authClose.addEventListener("click", () => (els.authModal.hidden = true));
   els.authModal.addEventListener("click", (e) => { if (e.target === els.authModal) els.authModal.hidden = true; });
   els.authForm.addEventListener("submit", handleAuthSubmit);
-  els.demoCta.addEventListener("click", () => openAuth("register"));
   els.userClose.addEventListener("click", () => (els.userModal.hidden = true));
   els.userModal.addEventListener("click", (e) => { if (e.target === els.userModal) els.userModal.hidden = true; });
   els.userLogout.addEventListener("click", async () => {

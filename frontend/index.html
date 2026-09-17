@@ -58,12 +58,6 @@
         </div>
       </header>
 
-      <div class="demo-banner" id="demo-banner" hidden>
-        <span class="demo-badge">Modo demonstracao</span>
-        <span class="demo-text" id="demo-text">Voce esta vendo uma amostra de imoveis. <strong>Crie sua conta e assine</strong> para acessar o acervo completo e receber alertas de novos imoveis.</span>
-        <button class="demo-cta" id="demo-cta" type="button">Criar conta</button>
-      </div>
-
       <section class="filters">
         <div class="filters-head">
           <button class="ghost-button" id="toggle-filters" type="button">
@@ -184,7 +178,7 @@
           </label>
           <div class="auth-error" id="auth-error" hidden></div>
           <button class="auth-submit" id="auth-submit" type="submit">Entrar</button>
-          <p class="auth-foot">Assinatura ativa e necessaria para acesso completo e alertas.</p>
+          <p class="auth-foot">Faça login para gerenciar seus alertas.</p>
         </form>
       </div>
     </div>
@@ -206,15 +200,6 @@
             <div class="user-info-item"><span>Nome</span><strong id="user-name">-</strong></div>
             <div class="user-info-item"><span>E-mail</span><strong id="user-email">-</strong></div>
           </div>
-        </section>
-
-        <section class="user-section">
-          <div class="user-section-head"><h3>Assinatura</h3><span class="subscription-badge" id="user-subscription-status">-</span></div>
-          <div class="user-info-grid">
-            <div class="user-info-item"><span>Início</span><strong id="user-subscription-start">-</strong></div>
-            <div class="user-info-item"><span>Validade</span><strong id="user-subscription-end">-</strong></div>
-          </div>
-          <p class="user-note" id="user-subscription-note"></p>
         </section>
 
         <section class="user-section">
@@ -282,7 +267,7 @@
       <div class="modal modal-lg" role="dialog" aria-modal="true">
         <button class="modal-close" id="alerts-close" type="button" aria-label="Fechar">&times;</button>
         <h2>Meus alertas</h2>
-        <p class="modal-sub">Receba notificações por e-mail/Telegram quando houver imóveis novos, removidos ou alterados que correspondam aos seus filtros.</p>
+        <p class="modal-sub">Receba um e-mail diário quando houver imóveis novos, removidos ou alterados que correspondam aos seus filtros.</p>
         <div class="alerts-status" id="alerts-status" hidden></div>
         <form id="alert-form" class="alert-form">
           <div class="alert-grid">
@@ -313,11 +298,6 @@
           </div>
           <div class="alert-channels">
             <label class="channel"><input type="checkbox" id="alert-email" checked /> E-mail</label>
-            <label class="channel"><input type="checkbox" id="alert-telegram" /> Telegram</label>
-            <label class="auth-field telegram-field">
-              <span>Telegram chat ID (opcional)</span>
-              <input type="text" id="alert-telegram-id" placeholder="Ex.: 355932694" />
-            </label>
           </div>
           <button class="auth-submit" id="alert-submit" type="submit">Salvar alerta</button>
         </form>
