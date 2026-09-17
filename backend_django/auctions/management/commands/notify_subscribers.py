@@ -95,15 +95,9 @@ def _montar_evento_html(evento: dict, imovel: Auction | None, payload: dict | No
 
 
 def _preferencias_ativas() -> list[PreferenciaAlerta]:
-    from django.db.models import Q
-
-    qs = PreferenciaAlerta.objects.filter(usuario__assinatura__ativa=True).select_related("usuario")
-    agora = date.today()
-    qs = qs.filter(
-        Q(usuario__assinatura__data_fim__isnull=True)
-        | Q(usuario__assinatura__data_fim__gte=agora)
+    return list(
+        PreferenciaAlerta.objects.filter(canal_email=True).select_related("usuario")
     )
-    return list(qs)
 
 
 class Command(BaseCommand):
@@ -206,7 +200,10 @@ class Command(BaseCommand):
             )
 
             if not dry_run:
-                ResendNotifier().enviar(pref.usuario.email, assunto, html)
+                ok = ResendNotifier().enviar(pref.usuario.email, assunto, html)
+                if not ok:
+                    self.stdout.write(f"[FALHA] Nao foi possivel enviar para {pref.usuario.email}; eventos nao marcados como enviados.")
+                    continue
                 with transaction.atomic():
                     for evento in registros:
                         NotificacaoEnviada.objects.create(
