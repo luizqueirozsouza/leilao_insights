@@ -100,6 +100,16 @@ gh pr create --base <base> --head "$(git branch --show-current)" \
 O body deve explicar o quê, o porquê e como foi validado (testes rodados,
 deploy testado, etc.).
 
+**Habilite o auto-merge no PR** (o GitHub não mergeia sozinho sem isso — é um
+passo por PR):
+
+```bash
+gh pr merge <numero-ou-branch> --auto --merge
+```
+
+Use `--squash` em vez de `--merge` se o projeto preferir commits únicos. Quando
+o check obrigatório ficar verde, o PR mergeia sozinho e a branch é deletada.
+
 ### 6. Acompanhar o CI/CD (PR)
 
 O auto-merge exige que o check obrigatório fique verde. Acompanhe:
