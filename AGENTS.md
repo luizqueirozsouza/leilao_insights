@@ -43,7 +43,7 @@ No test runner, linter, formatter, or typecheck is configured. `auctions/tests.p
 
 ## CI
 
-`.github/workflows/daily-sync.yml` — runs at 09:00 BRT. Extracts CSVs on the GitHub runner (avoids Caixa 403 blocks on VPS IPs), SCPs the snapshot to the VPS, then ingests inside the Docker container via `docker exec`.
+`.github/workflows/daily-sync.yml` — runs at 09:00 BRT (triggered by VPS host cron `0 9 * * 1-5`, local tz). Extracts CSVs on the GitHub runner (avoids Caixa 403 blocks on VPS IPs), SCPs the snapshot to the VPS, then ingests inside the Docker container via `docker exec`.
 
 Required GitHub secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, optionally `VPS_PORT`.
 

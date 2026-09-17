@@ -1,4 +1,5 @@
 # Agendador do sync no GitHub.
 # O disparo e executado pelo cron do host, porque a rede Docker deste projeto
 # nao possui saida HTTPS funcional para api.github.com.
-# 0 12 * * 1-5 root cd /app && uv run python -m pipeline.trigger_github_sync --verbose >> /var/log/leilao-sync.log 2>&1
+# O cron roda no fuso local do host (America/Sao_Paulo); usar hora local.
+# 0 9 * * 1-5 root cd /app && uv run python -m pipeline.trigger_github_sync --verbose >> /var/log/leilao-sync.log 2>&1
