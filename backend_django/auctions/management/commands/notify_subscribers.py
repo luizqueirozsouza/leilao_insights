@@ -32,6 +32,19 @@ def _pref_casa(pref: PreferenciaAlerta, imovel: Auction) -> bool:
     return True
 
 
+def _normalizar_payload(payload) -> dict:
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, str):
+        try:
+            value = json.loads(payload)
+            if isinstance(value, dict):
+                return value
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return {}
+
+
 def _payload_value(payload: dict, *keys: str):
     for key in keys:
         value = payload.get(key)
@@ -161,7 +174,7 @@ class Command(BaseCommand):
                 chave = (evento["uf"], evento["numero_imovel"])
                 imovel = imoveis.get(chave)
 
-                payload = evento["before_json"] if evento["tipo_evento"] == "EXIT" else evento["after_json"]
+                payload = _normalizar_payload(evento["before_json"] if evento["tipo_evento"] == "EXIT" else evento["after_json"])
                 if imovel:
                     if not _pref_casa(pref, imovel):
                         continue
