@@ -36,42 +36,32 @@ class EmailNotifier(Notifier):
             return False
 
 
-class TelegramNotifier(Notifier):
-    nome = "telegram"
+class ResendNotifier(Notifier):
+    nome = "resend"
 
     def __init__(self):
-        self.token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-        self.default_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-        self.api_url = os.getenv("TELEGRAM_API_URL", "https://api.telegram.org").rstrip("/")
+        import os
+        self.api_key = os.getenv("RESEND_API_KEY", "").strip()
+        self.from_email = os.getenv("RESEND_FROM_EMAIL", "Leilão Insights <onboarding@resend.dev>")
 
     @property
     def disponivel(self) -> bool:
-        return bool(self.token)
+        return bool(self.api_key)
 
     def enviar(self, destinatario: str, assunto: str, mensagem: str) -> bool:
         if not self.disponivel:
-            logger.info("Telegram nao configurado; pulando canal.")
+            logger.info("Resend nao configurado (RESEND_API_KEY ausente); pulando envio.")
             return False
         try:
-            import requests
-
-            chat_id = str(destinatario or self.default_chat_id).strip()
-            if not chat_id:
-                logger.warning("Telegram chat ID nao informado.")
-                return False
-            url = f"{self.api_url}/bot{self.token}/sendMessage"
-            texto = f"{assunto}\n\n{mensagem}" if assunto else mensagem
-            response = requests.post(
-                url,
-                json={"chat_id": chat_id, "text": texto},
-                timeout=30,
-            )
-            response.raise_for_status()
+            import resend
+            resend.api_key = self.api_key
+            resend.Emails.send({
+                "from": self.from_email,
+                "to": [destinatario],
+                "subject": assunto,
+                "html": mensagem,
+            })
             return True
         except Exception:
-            logger.exception("Falha ao enviar Telegram para %s", destinatario)
+            logger.exception("Falha ao enviar e-mail via Resend para %s", destinatario)
             return False
-
-
-def obter_notifiers() -> list[Notifier]:
-    return [EmailNotifier(), TelegramNotifier()]

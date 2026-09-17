@@ -123,5 +123,6 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Leilão Insights <no-reply@leilao-insights.com>')
+RESEND_FROM_EMAIL = env('RESEND_FROM_EMAIL', default='Leilão Insights <onboarding@resend.dev>')
 
 APPEND_SLASH = True

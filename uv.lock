@@ -59,6 +59,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "requests" },
+    { name = "resend" },
     { name = "uvicorn" },
 ]
 
@@ -76,6 +77,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "requests", specifier = ">=2.32.3" },
+    { name = "resend", specifier = ">=2.46.0" },
     { name = "uvicorn", specifier = ">=0.46.0" },
 ]
 
@@ -994,6 +996,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/95/96/fb6dbfebb524d5601d359a47c78fe7ba1eef90fc4096404aa60c9a906fbb/requirements_parser-0.13.0.tar.gz", hash = "sha256:0843119ca2cb2331de4eb31b10d70462e39ace698fd660a915c247d2301a4418", size = 22630, upload-time = "2025-05-21T13:42:05.464Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/60/50fbb6ffb35f733654466f1a90d162bcbea358adc3b0871339254fbc37b2/requirements_parser-0.13.0-py3-none-any.whl", hash = "sha256:2b3173faecf19ec5501971b7222d38f04cb45bb9d87d0ad629ca71e2e62ded14", size = 14782, upload-time = "2025-05-21T13:42:04.007Z" },
+]
+
+[[package]]
+name = "resend"
+version = "2.46.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c1/7e/96256ea9ae076b90e20e8c435a001281e1ff884467e0597d4245c769edf3/resend-2.46.0.tar.gz", hash = "sha256:db0ca26d9f46921082ccf28cf6a894b26a5287b003380cfb5039a7bc66d3b797", size = 61282, upload-time = "2026-09-15T21:24:28.248Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/2f/a20a11e2a398766ae51d6406cf49228a913dbd935ebe4f34acf8f07918c8/resend-2.46.0-py2.py3-none-any.whl", hash = "sha256:cb43ce303c6828c7a35912d9bc6b305e2b5870634b8256cf04af8ab76158633a", size = 93163, upload-time = "2026-09-15T21:24:26.99Z" },
 ]
 
 [[package]]

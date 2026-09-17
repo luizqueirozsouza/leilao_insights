@@ -2,32 +2,30 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 
-from backend_django.auctions.notifiers import EmailNotifier, TelegramNotifier
+from backend_django.auctions.notifiers import EmailNotifier, ResendNotifier
 
 
 class Command(BaseCommand):
-    help = "Testa o envio de notificacoes por e-mail e/ou Telegram."
+    help = "Testa o envio de notificacoes por e-mail e/ou Resend."
 
     def add_arguments(self, parser):
         parser.add_argument("--email", help="Destinatario do teste de e-mail.")
-        parser.add_argument("--telegram", action="store_true", help="Envia um teste pelo Telegram.")
-        parser.add_argument("--to", help="Telegram chat ID. Se omitido, usa TELEGRAM_CHAT_ID.")
+        parser.add_argument("--resend", help="Destinatario do teste via Resend (HTML).")
         parser.add_argument("--subject", default="Teste de notificacao — Leilao Insights")
-        parser.add_argument("--message", default="Esta e uma mensagem de teste do Leilao Insights.")
+        parser.add_argument("--message", default="<p>Esta e uma mensagem de teste do Leilao Insights.</p>")
         parser.add_argument("--dry-run", action="store_true", help="Apenas mostra os canais, sem enviar.")
         parser.add_argument("--show-message", action="store_true", help="Exibe assunto e mensagem antes do envio.")
 
     def handle(self, *args, **options):
         email = (options.get("email") or "").strip()
-        telegram_requested = options.get("telegram", False)
-        chat_id = (options.get("to") or "").strip()
+        resend_to = (options.get("resend") or "").strip()
         subject = options["subject"]
         message = options["message"]
         dry_run = options.get("dry_run", False)
         show_message = options.get("show_message", False)
 
-        if not email and not telegram_requested:
-            raise CommandError("Informe --email, --telegram ou ambos.")
+        if not email and not resend_to:
+            raise CommandError("Informe --email, --resend ou ambos.")
 
         if show_message or dry_run:
             self.stdout.write(f"Assunto: {subject}")
@@ -42,14 +40,13 @@ class Command(BaseCommand):
                 self.stdout.write(f"[{'OK' if ok else 'ERRO'}] E-mail -> {email}")
                 failures += not ok
 
-        if telegram_requested:
-            notifier = TelegramNotifier()
-            target = chat_id or notifier.default_chat_id
+        if resend_to:
+            notifier = ResendNotifier()
             if dry_run:
-                self.stdout.write(f"[DRY] Telegram -> {target or '(TELEGRAM_CHAT_ID ausente)'}")
+                self.stdout.write(f"[DRY] Resend -> {resend_to}")
             else:
-                ok = notifier.enviar(target, subject, message)
-                self.stdout.write(f"[{'OK' if ok else 'ERRO'}] Telegram -> {target or '(chat ID ausente)'}")
+                ok = notifier.enviar(resend_to, subject, message)
+                self.stdout.write(f"[{'OK' if ok else 'ERRO'}] Resend -> {resend_to}")
                 failures += not ok
 
         if failures:
