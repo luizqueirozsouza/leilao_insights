@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.utils import timezone
 from .models import Auction
-from .access import aplicar_modo_demo, ver_amostra, usuario_tem_assinatura_ativa
+from .access import usuario_tem_assinatura_ativa
 from .caixa_detail import buscar_detalhe
 
 
@@ -83,11 +83,9 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
     cidade = cidade or []
     bairro = bairro or []
     modalidade = modalidade or []
-    access_scope = 'demo' if request is not None and ver_amostra(request) else 'full'
+    access_scope = 'full'
 
     base_qs = Auction.objects.all()
-    if request is not None:
-        base_qs, _ = aplicar_modo_demo(base_qs, request)
 
     ufs = _cached_count_options(
         f"filter_ufs:{access_scope}",
@@ -218,7 +216,7 @@ def auction_list(request):
     uf, cidade, bairro, modalidade, tipo, sort, page = _get_filters(request)
 
     auctions = _build_queryset(uf, cidade, bairro, modalidade, tipo)
-    auctions, em_demo = aplicar_modo_demo(auctions, request)
+    em_demo = False
     auctions = auctions.only(
         'numero_imovel', 'uf', 'cidade', 'bairro', 'endereco',
         'preco', 'valor_avaliacao', 'desconto', 'modalidade', 'link',
@@ -277,7 +275,7 @@ def api_cidades(request):
     if not uf:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf)
-    qs, _ = aplicar_modo_demo(qs, request)
+    pass
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     cidades = _count_options(qs, 'cidade')
@@ -291,7 +289,7 @@ def api_bairros(request):
     if not uf or not cidade:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf, cidade__in=cidade)
-    qs, _ = aplicar_modo_demo(qs, request)
+    pass
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     bairros = _count_options(qs, 'bairro')
@@ -300,7 +298,7 @@ def api_bairros(request):
 
 def api_stats(request):
     base_qs = Auction.objects.all()
-    base_qs, em_demo = aplicar_modo_demo(base_qs, request)
+    em_demo = False
 
     stats = {
         'total': base_qs.count(),
@@ -342,7 +340,7 @@ def api_stats_filtered(request):
     tipo = _clean_list(request.GET.getlist('tipo'))
 
     qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
-    qs, _ = aplicar_modo_demo(qs, request)
+    pass
 
     agg = qs.aggregate(
         average=models.Avg('valor_avaliacao'),
@@ -364,7 +362,7 @@ def api_properties(request):
     limit = min(int(request.GET.get('limit', 24)), 100)
 
     qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
-    qs, em_demo = aplicar_modo_demo(qs, request)
+    em_demo = False
 
     if sort == 'price_desc':
         qs = qs.order_by('-preco')

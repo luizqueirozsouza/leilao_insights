@@ -8,7 +8,6 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
-from backend_django.auctions.access import usuario_tem_assinatura_ativa
 from backend_django.auctions.models import Assinatura, PreferenciaAlerta
 
 
@@ -254,8 +253,6 @@ def api_preferencias(request):
     user = request.user
     if not user.is_authenticated:
         return JsonResponse({'error': 'Faça login para gerenciar alertas'}, status=401)
-    if not usuario_tem_assinatura_ativa(user):
-        return JsonResponse({'error': 'Alertas exigem assinatura ativa'}, status=403)
 
     if request.method == 'GET':
         preferencias = [
@@ -286,8 +283,6 @@ def api_preferencias_id(request, pref_id):
     user = request.user
     if not user.is_authenticated:
         return JsonResponse({'error': 'Faça login para gerenciar alertas'}, status=401)
-    if not usuario_tem_assinatura_ativa(user):
-        return JsonResponse({'error': 'Alertas exigem assinatura ativa'}, status=403)
 
     pref = user.preferencias_alertas.filter(id=pref_id).first()
     if not pref:
