@@ -43,8 +43,8 @@ class AssinaturaAdmin(admin.ModelAdmin):
 
 @admin.register(PreferenciaAlerta)
 class PreferenciaAlertaAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'uf', 'canal_email', 'canal_telegram', 'criada_em')
-    list_filter = ('uf', 'canal_email', 'canal_telegram')
+    list_display = ('usuario', 'uf', 'canal_email', 'criada_em')
+    list_filter = ('uf', 'canal_email')
     search_fields = ('usuario__email',)
     readonly_fields = ('criada_em',)
 
