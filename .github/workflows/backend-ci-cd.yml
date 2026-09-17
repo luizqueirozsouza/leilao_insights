@@ -53,9 +53,10 @@ jobs:
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_TRIGGER_URL" || echo "CURL_ERROR")
           BODY=$(echo "$RESPONSE" | head -n -1)
           CODE=$(echo "$RESPONSE" | tail -n 1)
-          echo "Response: $BODY (HTTP $CODE)"
+          echo "Response: ${BODY:0:120} (HTTP $CODE)"
           case "$CODE" in
             200|201|202) echo "Deploy triggered successfully";;
+            CURL_ERROR) echo "::error::curl failed to reach EasyPanel deploy URL"; exit 1;;
             *) echo "::error::EasyPanel deploy trigger failed (HTTP $CODE)"; exit 1;;
           esac
 
@@ -98,8 +99,8 @@ jobs:
           for ATTEMPT in 1 2 3; do
             echo "Run migrations on VPS: attempt $ATTEMPT/3"
             if ssh "${SSH_OPTS[@]}" -p "$PORT" "$VPS_USER@$VPS_HOST" "
-              set -e
-              CONTAINER=\$(docker ps --format '{{.Names}}' | grep '^projetos_leilao_insights-backend-' | head -n 1)
+              set -eo pipefail
+              CONTAINER=\$(docker ps --format '{{.Names}}' | grep -m1 '^projetos_leilao_insights-backend-1\$')
               test -n \"\$CONTAINER\" || (echo 'Backend container not found' && exit 1)
               docker exec \"\$CONTAINER\" sh -lc 'cd /app && uv run python backend_django/manage.py migrate'
             "; then
