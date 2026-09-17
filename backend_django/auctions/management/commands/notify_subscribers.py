@@ -6,13 +6,14 @@ from datetime import date
 
 from django.core.management.base import BaseCommand
 from django.db import connection, transaction
+from django.template.loader import render_to_string
 
 from backend_django.auctions.models import (
     Auction,
     NotificacaoEnviada,
     PreferenciaAlerta,
 )
-from backend_django.auctions.notifiers import EmailNotifier, TelegramNotifier
+from backend_django.auctions.notifiers import ResendNotifier
 
 logger = logging.getLogger("auctions.notify")
 
@@ -61,36 +62,36 @@ def _descrever_evento(tipo_evento: str) -> str:
     }.get(tipo_evento, tipo_evento)
 
 
-def _montar_mensagem(evento: dict, imovel: Auction | None, payload: dict | None = None) -> str:
+def _montar_evento_html(evento: dict, imovel: Auction | None, payload: dict | None = None) -> dict:
     base = _descrever_evento(evento["tipo_evento"])
-    linhas = [f"🔔 {base}"]
-    linhas.append(f"Imóvel: {evento['numero_imovel']} ({evento['uf']})")
+    dados = {
+        "titulo": base,
+        "numero_imovel": evento["numero_imovel"],
+        "uf": evento["uf"],
+        "cidade": None,
+        "bairro": None,
+        "modalidade": None,
+        "tipo": None,
+        "preco": None,
+        "link": None,
+    }
     if imovel:
-        if imovel.cidade:
-            linhas.append(f"Cidade: {imovel.cidade}")
-        if imovel.bairro:
-            linhas.append(f"Bairro: {imovel.bairro}")
-        if imovel.modalidade:
-            linhas.append(f"Modalidade: {imovel.modalidade}")
-        if imovel.tipo_imovel:
-            linhas.append(f"Tipo: {imovel.tipo_imovel}")
-        if imovel.preco is not None:
-            linhas.append(f"Preço: R$ {imovel.preco}")
-        if imovel.link:
-            linhas.append(f"Detalhes: {imovel.link}")
+        dados.update({
+            "cidade": imovel.cidade,
+            "bairro": imovel.bairro,
+            "modalidade": imovel.modalidade,
+            "tipo": imovel.tipo_imovel,
+            "preco": imovel.preco,
+            "link": imovel.link,
+        })
     elif payload:
-        for label, keys in (
-            ("Cidade", ("Cidade",)),
-            ("Bairro", ("Bairro",)),
-            ("Modalidade", ("Modalidade de venda",)),
-            ("Tipo", ("tipo_imovel", "Tipo de imóvel", "Tipo de imovel")),
-            ("Preço", ("Preço", "Pre\u00e7o")),
-            ("Detalhes", ("Link de acesso",)),
-        ):
-            value = _payload_value(payload, *keys)
-            if value:
-                linhas.append(f"{label}: {value}")
-    return "\n".join(linhas)
+        dados["cidade"] = _payload_value(payload, "Cidade") or None
+        dados["bairro"] = _payload_value(payload, "Bairro") or None
+        dados["modalidade"] = _payload_value(payload, "Modalidade de venda") or None
+        dados["tipo"] = _payload_value(payload, "tipo_imovel", "Tipo de imóvel", "Tipo de imovel") or None
+        dados["preco"] = _payload_value(payload, "Preço", "Pre\u00e7o") or None
+        dados["link"] = _payload_value(payload, "Link de acesso") or None
+    return dados
 
 
 def _preferencias_ativas() -> list[PreferenciaAlerta]:
@@ -150,16 +151,22 @@ class Command(BaseCommand):
             imoveis[(a.uf, a.numero_imovel)] = a
 
         preferencias = _preferencias_ativas()
-        telegram = TelegramNotifier()
+        assunto = f"Alerta de leilão — {dt}"
 
         enviados = 0
-        sem_match = 0
 
-        for evento in eventos:
-            chave = (evento["uf"], evento["numero_imovel"])
-            imovel = imoveis.get(chave)
+        for pref in preferencias:
+            if not (pref.canal_email and pref.usuario.email):
+                continue
 
-            for pref in preferencias:
+            lista = []
+            registros = []
+            vistos = set()
+
+            for evento in eventos:
+                chave = (evento["uf"], evento["numero_imovel"])
+                imovel = imoveis.get(chave)
+
                 payload = evento["before_json"] if evento["tipo_evento"] == "EXIT" else evento["after_json"]
                 if imovel:
                     if not _pref_casa(pref, imovel):
@@ -167,6 +174,11 @@ class Command(BaseCommand):
                 else:
                     if not _pref_payload_casa(pref, payload, evento["uf"]):
                         continue
+
+                chave_evento = (evento["uf"], evento["numero_imovel"], evento["tipo_evento"])
+                if chave_evento in vistos:
+                    continue
+                vistos.add(chave_evento)
 
                 ja_enviado = NotificacaoEnviada.objects.filter(
                     preferencia=pref,
@@ -178,39 +190,34 @@ class Command(BaseCommand):
                 if ja_enviado:
                     continue
 
-                mensagem = _montar_mensagem(evento, imovel, payload)
-                if show_message or dry_run:
-                    self.stdout.write(f"\n--- Mensagem para {pref.usuario.email} ---\n{mensagem}\n--- Fim da mensagem ---")
-                canais_ok = []
-                if pref.canal_email and pref.usuario.email:
-                    canais_ok.append("email")
-                    if not dry_run:
-                        EmailNotifier().enviar(
-                            pref.usuario.email,
-                            f"Alerta de leilão — {_descrever_evento(evento['tipo_evento'])}",
-                            mensagem,
-                        )
-                if pref.canal_telegram and (pref.contato_telegram or telegram.default_chat_id):
-                    canais_ok.append("telegram")
-                    if not dry_run:
-                        telegram.enviar(pref.contato_telegram, "", mensagem)
+                lista.append(_montar_evento_html(evento, imovel, payload))
+                registros.append(evento)
 
-                if not dry_run and canais_ok:
-                    with transaction.atomic():
+            if not lista:
+                continue
+
+            html = render_to_string("emails/alerta_imoveis.html", {"assunto": assunto, "eventos": lista})
+            if show_message or dry_run:
+                self.stdout.write(f"\n--- Email para {pref.usuario.email} ---\n{html}\n--- Fim do email ---")
+
+            enviados += 1
+            self.stdout.write(
+                f"[{'DRY' if dry_run else 'ENV'}] {pref.usuario.email} ({len(lista)} evento(s))"
+            )
+
+            if not dry_run:
+                ResendNotifier().enviar(pref.usuario.email, assunto, html)
+                with transaction.atomic():
+                    for evento in registros:
                         NotificacaoEnviada.objects.create(
                             preferencia=pref,
                             tipo_evento=evento["tipo_evento"],
                             numero_imovel=evento["numero_imovel"],
                             uf=evento["uf"],
                             dt=dt,
-                            canais=canais_ok,
+                            canais=["resend"],
                         )
-                enviados += 1
-                self.stdout.write(
-                    f"[{'DRY' if dry_run else 'ENV'}][{evento['tipo_evento']}] "
-                    f"{evento['uf']}/{evento['numero_imovel']} -> {pref.usuario.email} ({','.join(canais_ok)})"
-                )
 
         self.stdout.write(
-            self.style.SUCCESS(f"Concluido: {enviados} notificacoes ({'dry-run' if dry_run else 'enviadas'}).")
+            self.style.SUCCESS(f"Concluido: {enviados} emails ({'dry-run' if dry_run else 'enviados'}).")
         )
