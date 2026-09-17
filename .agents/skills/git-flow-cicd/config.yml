@@ -1,0 +1,53 @@
+# Configuração da skill git-flow-cicd
+# Para reusar esta skill em outro projeto: copie a pasta `git-flow-cicd/`
+# para `.agents/skills/` do outro projeto e edite APENAS este arquivo.
+
+# Branch de integração (proteção + auto-merge + deploy)
+base_branch: main
+
+# Repositório (owner/repo)
+repo: luizqueirozsouza/leilao_insights
+
+# Workflow que roda o CI/CD (Test em PR, Deploy em main)
+workflow: backend-ci-cd.yml
+
+# Nome do status check obrigatório exigido pela branch protection
+required_check: Test
+
+# Nome do job de deploy dentro do workflow
+deploy_job_name: Deploy to EasyPanel
+
+# Comando(s) de teste usados pelo job Test (para reprodução local)
+test_commands:
+  - uv run python -m unittest discover tests -v
+
+# Secrets exigidos pelo deploy (environment production)
+secrets:
+  - DEPLOY_TRIGGER_URL
+  - VPS_HOST
+  - VPS_USER
+  - VPS_SSH_KEY
+  - VPS_PORT
+  - RESEND_API_KEY
+
+# Health check após deploy (endpoint que deve responder 200)
+health_check_url: https://api-leilao.kb4x5f.easypanel.host/api/stats
+
+# Acesso SSH ao servidor de produção (usado para validar o commit no deploy)
+ssh:
+  key: ~/.ssh/github_actions_app_leilao
+  host: 38.242.142.197
+  user: root
+  deploy_dir: /etc/easypanel/projects/projetos/leilao_insights/code
+
+# Idioma das mensagens de commit / descrições de PR
+commit_lang: pt-BR
+
+# Prefixos de commit aceitos (tipos convencionais)
+commit_types:
+  - feat
+  - fix
+  - chore
+  - docs
+  - test
+  - ci
