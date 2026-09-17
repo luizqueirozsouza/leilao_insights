@@ -40,9 +40,9 @@ class ResendNotifier(Notifier):
     nome = "resend"
 
     def __init__(self):
-        import os
+        from django.conf import settings
         self.api_key = os.getenv("RESEND_API_KEY", "").strip()
-        self.from_email = os.getenv("RESEND_FROM_EMAIL", "Leilão Insights <onboarding@resend.dev>")
+        self.from_email = getattr(settings, "RESEND_FROM_EMAIL", "Leilão Insights <onboarding@resend.dev>")
 
     @property
     def disponivel(self) -> bool:

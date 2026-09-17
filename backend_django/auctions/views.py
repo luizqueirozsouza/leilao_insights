@@ -275,7 +275,6 @@ def api_cidades(request):
     if not uf:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf)
-    pass
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     cidades = _count_options(qs, 'cidade')
@@ -289,7 +288,6 @@ def api_bairros(request):
     if not uf or not cidade:
         return JsonResponse([], safe=False)
     qs = Auction.objects.filter(uf=uf, cidade__in=cidade)
-    pass
     if modalidade:
         qs = qs.filter(modalidade__in=modalidade)
     bairros = _count_options(qs, 'bairro')
@@ -340,7 +338,6 @@ def api_stats_filtered(request):
     tipo = _clean_list(request.GET.getlist('tipo'))
 
     qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
-    pass
 
     agg = qs.aggregate(
         average=models.Avg('valor_avaliacao'),

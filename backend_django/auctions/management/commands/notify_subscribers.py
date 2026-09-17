@@ -190,7 +190,11 @@ class Command(BaseCommand):
             if not lista:
                 continue
 
-            html = render_to_string("emails/alerta_imoveis.html", {"assunto": assunto, "eventos": lista})
+            try:
+                html = render_to_string("emails/alerta_imoveis.html", {"assunto": assunto, "eventos": lista})
+            except Exception:
+                logger.exception("Falha ao renderizar template de alerta para %s", pref.usuario.email)
+                continue
             if show_message or dry_run:
                 self.stdout.write(f"\n--- Email para {pref.usuario.email} ---\n{html}\n--- Fim do email ---")
 
