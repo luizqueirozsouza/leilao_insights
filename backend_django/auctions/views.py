@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import Auction
 from .access import usuario_tem_assinatura_ativa
 from .caixa_detail import buscar_detalhe
+from .auth_views import _serializar_assinatura, _serializar_preferencia
 
 
 def _clean_list(values):
@@ -94,29 +95,31 @@ def _get_filter_options(uf='', cidade=None, bairro=None, modalidade=None, reques
         600,
     )
 
-    cities_qs = base_qs
+    # Cidades/bairros so fazem sentido depois de escolher a UF/cidade. Sem isso,
+    # limitamos o payload (antes vinham ~1.100 cidades + ~4.400 bairros = ~380 KB).
     if uf:
-        cities_qs = cities_qs.filter(uf=uf)
-    if modalidade:
-        cities_qs = cities_qs.filter(modalidade__in=modalidade)
-    cities = _cached_count_options(
-        f"filter_cities:{access_scope}:{uf or 'all'}:{_cache_part(modalidade)}",
-        cities_qs,
-        'cidade',
-    )
+        cities_qs = base_qs.filter(uf=uf)
+        if modalidade:
+            cities_qs = cities_qs.filter(modalidade__in=modalidade)
+        cities = _cached_count_options(
+            f"filter_cities:{access_scope}:{uf}:{_cache_part(modalidade)}",
+            cities_qs,
+            'cidade',
+        )
+    else:
+        cities = []
 
-    neighborhoods_qs = base_qs
-    if uf:
-        neighborhoods_qs = neighborhoods_qs.filter(uf=uf)
-    if cidade:
-        neighborhoods_qs = neighborhoods_qs.filter(cidade__in=cidade)
-    if modalidade:
-        neighborhoods_qs = neighborhoods_qs.filter(modalidade__in=modalidade)
-    neighborhoods = _cached_count_options(
-        f"filter_neighborhoods:{access_scope}:{uf or 'all'}:{_cache_part(cidade)}:{_cache_part(modalidade)}",
-        neighborhoods_qs,
-        'bairro',
-    )
+    if uf and cidade:
+        neighborhoods_qs = base_qs.filter(uf=uf, cidade__in=cidade)
+        if modalidade:
+            neighborhoods_qs = neighborhoods_qs.filter(modalidade__in=modalidade)
+        neighborhoods = _cached_count_options(
+            f"filter_neighborhoods:{access_scope}:{uf}:{_cache_part(cidade)}:{_cache_part(modalidade)}",
+            neighborhoods_qs,
+            'bairro',
+        )
+    else:
+        neighborhoods = []
 
     modalidades_qs = base_qs
     if uf:
@@ -210,6 +213,131 @@ def _parse_desc(desc):
 
     info['fgts'] = 'FGTS' in desc.upper()
     return info
+
+
+def _median(qs, field):
+    """Mediana real de um campo, usando o queryset filtrado (indice no campo)."""
+    count = qs.count()
+    if not count:
+        return 0.0
+    values = qs.order_by(field).values_list(field, flat=True)
+    mid = count // 2
+    if count % 2:
+        return float(values[mid] or 0)
+    low = values[mid - 1]
+    high = values[mid]
+    if low is None or high is None:
+        return float(low or high or 0)
+    return (float(low) + float(high)) / 2
+
+
+def _global_stats_payload():
+    """Estatisticas globais (todas as UFs) em uma unica query."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT (cidade, uf)), MAX(last_seen) FROM current_imoveis"
+        )
+        row = cursor.fetchone()
+    last_seen = row[2]
+    return {
+        'total': row[0] or 0,
+        'cities': row[1] or 0,
+        'last_updated': last_seen.strftime('%d/%m/%Y') if last_seen else None,
+    }
+
+
+def _filtered_stats_payload(uf='', cidade=None, bairro=None, modalidade=None, tipo=None):
+    qs = _build_queryset(uf, cidade, bairro, modalidade, tipo)
+    average = qs.aggregate(average=models.Avg('valor_avaliacao'))['average']
+    return {
+        'average': float(average or 0),
+        'median': _median(qs, 'valor_avaliacao'),
+    }
+
+
+def _filters_payload(uf='', cidade=None, bairro=None, modalidade=None):
+    ufs, cities, neighborhoods, modalidades, tipos = _get_filter_options(
+        uf, cidade, bairro, modalidade
+    )
+    return {
+        'ufs': ufs,
+        'cities': cities,
+        'neighborhoods': neighborhoods,
+        'modalidades': modalidades,
+        'tipos': tipos,
+    }
+
+
+def _properties_payload(uf='', cidade=None, bairro=None, modalidade=None, tipo=None,
+                        sort='price_asc', limit=48):
+    qs = _build_queryset(uf, cidade, bairro, modalidade, tipo)
+    if sort == 'price_desc':
+        qs = qs.order_by('-preco')
+    else:
+        qs = qs.order_by('preco')
+    qs = qs.only('uf', 'numero_imovel', 'tipo_imovel', 'payload_json')[:limit]
+
+    results = []
+    for a in qs:
+        payload = a.payload_json if a.payload_json else {}
+        if not isinstance(payload, dict):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        results.append({
+            'uf': a.uf,
+            'numero_imovel': a.numero_imovel,
+            'tipo_imovel': a.tipo_imovel,
+            'payload': payload,
+        })
+    return results
+
+
+def _session_payload(request):
+    user = request.user
+    if not user.is_authenticated:
+        return {
+            'autenticado': False,
+            'administrador': False,
+            'assinatura': None,
+            'preferencias': [],
+        }
+    preferencias = [
+        _serializar_preferencia(p)
+        for p in user.preferencias_alertas.all().order_by('-id')
+    ]
+    return {
+        'autenticado': True,
+        'administrador': bool(user.is_staff),
+        'email': user.email,
+        'nome': user.first_name,
+        'assinatura': _serializar_assinatura(user),
+        'preferencias': preferencias,
+    }
+
+
+def api_bootstrap(request):
+    """Retorna sessao + filtros + estatisticas + imoveis em uma unica requisicao.
+
+    Substitui a sequencia /me + /filters + /stats + /stats/filtered + /properties
+    (5 round-trips) por uma so, cortando a latencia percebida no carregamento.
+    """
+    uf = request.GET.get('uf', '').strip()
+    city = _clean_list(request.GET.getlist('city'))
+    neighborhood = _clean_list(request.GET.getlist('neighborhood'))
+    modalidade = _clean_list(request.GET.getlist('modalidade'))
+    tipo = _clean_list(request.GET.getlist('tipo'))
+    sort = request.GET.get('sort', 'price_asc').strip()
+    limit = min(int(request.GET.get('limit', 48)), 100)
+
+    return JsonResponse({
+        'session': _session_payload(request),
+        'filters': _filters_payload(uf, city, neighborhood, modalidade),
+        'stats': _global_stats_payload(),
+        'filtered': _filtered_stats_payload(uf, city, neighborhood, modalidade, tipo),
+        'properties': _properties_payload(uf, city, neighborhood, modalidade, tipo, sort, limit),
+    })
 
 
 def auction_list(request):
@@ -337,16 +465,7 @@ def api_stats_filtered(request):
     modalidade = _clean_list(request.GET.getlist('modalidade'))
     tipo = _clean_list(request.GET.getlist('tipo'))
 
-    qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
-
-    agg = qs.aggregate(
-        average=models.Avg('valor_avaliacao'),
-        median=models.Avg('preco'),
-    )
-    return JsonResponse({
-        'average': float(agg['average'] or 0),
-        'median': float(agg['median'] or 0),
-    })
+    return JsonResponse(_filtered_stats_payload(uf, city, neighborhood, modalidade, tipo))
 
 
 def api_properties(request):
@@ -358,33 +477,10 @@ def api_properties(request):
     sort = request.GET.get('sort', 'price_asc').strip()
     limit = min(int(request.GET.get('limit', 24)), 100)
 
-    qs = _build_queryset(uf, city, neighborhood, modalidade, tipo)
-    em_demo = False
-
-    if sort == 'price_desc':
-        qs = qs.order_by('-preco')
-    else:
-        qs = qs.order_by('preco')
-
-    qs = qs.only('uf', 'numero_imovel', 'tipo_imovel', 'payload_json')[:limit]
-
-    results = []
-    for a in qs:
-        payload = a.payload_json if a.payload_json else {}
-        if not isinstance(payload, dict):
-            try:
-                payload = json.loads(payload)
-            except Exception:
-                payload = {}
-        results.append({
-            'uf': a.uf,
-            'numero_imovel': a.numero_imovel,
-            'tipo_imovel': a.tipo_imovel,
-            'payload': payload,
-        })
+    results = _properties_payload(uf, city, neighborhood, modalidade, tipo, sort, limit)
 
     if request.GET.get('_include_demo') == '1':
-        return JsonResponse({'em_demo': em_demo, 'items': results}, safe=False)
+        return JsonResponse({'em_demo': False, 'items': results}, safe=False)
     return JsonResponse(results, safe=False)
 
 

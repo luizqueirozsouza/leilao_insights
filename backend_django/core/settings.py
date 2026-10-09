@@ -62,6 +62,8 @@ DATABASES = {
         'PASSWORD': env('password').replace('"', ''),
         'HOST': env('host'),
         'PORT': env('port'),
+        'CONN_MAX_AGE': env.int('CONN_MAX_AGE', default=60),
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 

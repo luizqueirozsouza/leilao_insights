@@ -150,7 +150,7 @@ function setLoading(isLoading) {
   document.body.classList.toggle("loading", isLoading);
   els.uf.disabled = isLoading;
   els.cityTrigger.disabled = isLoading || !state.uf;
-  els.neighborhoodTrigger.disabled = isLoading || !state.uf;
+  els.neighborhoodTrigger.disabled = isLoading || !state.cities.length;
   els.modalityTrigger.disabled = isLoading;
   els.typeTrigger.disabled = isLoading;
   els.sortButton.disabled = isLoading;
@@ -320,12 +320,19 @@ function renderOptions(panel, groupName, options, selectedValues, onChange, conf
     });
   }
 
-  searchInput.addEventListener("input", () => draw(searchInput.value));
-  draw();
-  panel._searchInput = searchInput;
-
-  if (!options.length) {
+  searchInput.addEventListener("input", () => {
+    panel._drawn = true;
     draw(searchInput.value);
+  });
+  panel._searchInput = searchInput;
+  panel._drawn = false;
+  panel._drawOptions = () => {
+    panel._drawn = true;
+    draw(searchInput.value);
+  };
+
+  if (!options.length || panel.classList.contains("open")) {
+    panel._drawOptions();
   }
 }
 
@@ -351,58 +358,55 @@ function setupPanel(trigger, panel) {
       if (item !== panel) item.classList.remove("open");
     });
     panel.classList.toggle("open");
-    if (panel.classList.contains("open") && panel._searchInput) {
-      panel._searchInput.focus();
-      panel._searchInput.select();
+    if (panel.classList.contains("open")) {
+      if (!panel._drawn && panel._drawOptions) panel._drawOptions();
+      if (panel._searchInput) {
+        panel._searchInput.focus();
+        panel._searchInput.select();
+      }
     }
   });
   panel.addEventListener("click", (event) => event.stopPropagation());
 }
 
-async function loadFilters() {
-  const data = await api("/filters", selectedParams());
-
-  state.ufOptions = data.ufs;
+function applyFilters(data) {
+  state.ufOptions = data.ufs || [];
   renderUfOptions();
 
-  renderOptions(els.cityPanel, "city", data.cities, state.cities, async () => {
+  renderOptions(els.cityPanel, "city", data.cities || [], state.cities, () => {
     state.cities = readChecked(els.cityPanel);
     state.neighborhoods = [];
     state.modalidades = [];
     state.tipos = [];
     updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
-    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar cidade" });
 
-  renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods, state.neighborhoods, async () => {
+  renderOptions(els.neighborhoodPanel, "neighborhood", data.neighborhoods || [], state.neighborhoods, () => {
     state.neighborhoods = readChecked(els.neighborhoodPanel);
     state.modalidades = [];
     state.tipos = [];
     updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
-    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar bairro" });
 
-  renderOptions(els.modalityPanel, "modalidade", data.modalidades, state.modalidades, async () => {
+  renderOptions(els.modalityPanel, "modalidade", data.modalidades || [], state.modalidades, () => {
     state.modalidades = readChecked(els.modalityPanel);
     state.tipos = [];
     updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
-    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar modalidade" });
 
-  renderOptions(els.typePanel, "tipo", data.tipos, state.tipos, async () => {
+  renderOptions(els.typePanel, "tipo", data.tipos || [], state.tipos, () => {
     state.tipos = readChecked(els.typePanel);
     updateTrigger(els.typeTrigger, state.tipos, "Todos", "selecionados");
-    await loadFilters();
     scheduleSearch();
   }, { placeholder: "Digite para buscar tipo" });
 
   els.cityTrigger.disabled = state.loading || !state.uf;
-  els.neighborhoodTrigger.disabled = state.loading || !state.uf;
   els.neighborhoodTrigger.disabled = state.loading || !state.cities.length;
   els.modalityTrigger.disabled = state.loading;
+  els.typeTrigger.disabled = state.loading;
   updateTrigger(els.cityTrigger, state.cities, "Todas", "selecionadas");
   updateTrigger(els.neighborhoodTrigger, state.neighborhoods, "Todos", "selecionados");
   updateTrigger(els.modalityTrigger, state.modalidades, "Todas", "selecionadas");
@@ -462,36 +466,35 @@ function renderProperties(properties) {
   });
 }
 
-async function loadStatsAndProperties() {
+async function loadBootstrap() {
   setStatus("Carregando imoveis...");
-  try {
-    const [stats, filteredStats, properties] = await Promise.all([
-      api("/stats"),
-      api("/stats/filtered", selectedParams()),
-      api("/properties", { ...selectedParams(), limit: 48 }),
-    ]);
+  const data = await api("/bootstrap", { ...selectedParams(), limit: 48 });
 
-    els.statsTotal.textContent = formatNumber(stats.total);
-    els.statsCities.textContent = formatNumber(stats.cities);
-    els.statsAverage.textContent = formatMoney(filteredStats.average);
-    els.statsMedian.textContent = formatMoney(filteredStats.median);
-    els.lastUpdated.textContent = stats.last_updated || "-";
+  state.session = data.session || null;
+  renderAccount();
+  applyFilters(data.filters || {});
 
-    renderProperties(properties);
-  } catch (error) {
-    setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
-  }
+  const stats = data.stats || {};
+  const filtered = data.filtered || {};
+  els.statsTotal.textContent = formatNumber(stats.total);
+  els.statsCities.textContent = formatNumber(stats.cities);
+  els.statsAverage.textContent = formatMoney(filtered.average);
+  els.statsMedian.textContent = formatMoney(filtered.median);
+  els.lastUpdated.textContent = stats.last_updated || "-";
+
+  renderProperties(data.properties || []);
 }
 
 async function search() {
   els.searchButton.disabled = true;
+  setLoading(true);
   try {
-    // Revalidate the subscription before each refresh so admin changes take effect immediately.
-    await loadSession();
-    await loadFilters();
-    await loadStatsAndProperties();
+    // Uma unica requisicao revalida sessao, filtros, estatisticas e imoveis.
+    await loadBootstrap();
+  } catch (error) {
+    setStatus("Nao foi possivel carregar os dados. Confira a URL da API.");
   } finally {
-    els.searchButton.disabled = state.loading;
+    setLoading(false);
   }
 }
 
@@ -676,15 +679,6 @@ async function openAdminPanel() {
   }
 }
 
-async function loadSession() {
-  try {
-    state.session = await api("/me");
-  } catch (e) {
-    state.session = null;
-  }
-  renderAccount();
-}
-
 function openAuth(mode) {
   state.authMode = mode;
   setAuthMode(mode);
@@ -720,8 +714,6 @@ async function handleAuthSubmit(event) {
     }
     els.authModal.hidden = true;
     els.authForm.reset();
-    await loadSession();
-    await loadFilters();
     await search();
   } catch (error) {
     els.authError.textContent = error.message;
@@ -735,7 +727,6 @@ async function logout() {
   } catch (e) {}
   state.session = null;
   renderAccount();
-  await loadFilters();
   await search();
 }
 
@@ -1154,13 +1145,12 @@ function bindEvents() {
 
   document.addEventListener("click", closePanels);
 
-  els.uf.addEventListener("change", async () => {
+  els.uf.addEventListener("change", () => {
     state.uf = els.uf.value;
     state.cities = [];
     state.neighborhoods = [];
     state.modalidades = [];
     state.tipos = [];
-    await loadFilters();
     scheduleSearch();
   });
 
@@ -1177,7 +1167,6 @@ function bindEvents() {
     state.modalidades = [];
     state.tipos = [];
     state.sort = "price_asc";
-    await loadFilters();
     await search();
   });
 
@@ -1266,16 +1255,9 @@ function bindEvents() {
 }
 
 async function init() {
-  setLoading(true);
   setStatus("Carregando filtros e estatisticas...");
   bindEvents();
-  await loadSession();
-  try {
-    await loadFilters();
-    await search();
-  } finally {
-    setLoading(false);
-  }
+  await search();
 }
 
 init();

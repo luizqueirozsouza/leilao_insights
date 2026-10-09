@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     auction_list, api_cidades, api_bairros,
     api_stats, api_filters, api_stats_filtered, api_properties, api_property,
+    api_bootstrap,
 )
 from .auth_views import (
     api_registro, api_login, api_logout, api_me,
@@ -15,6 +16,7 @@ urlpatterns = [
     path('api/cidades/', api_cidades, name='api_cidades'),
     path('api/bairros/', api_bairros, name='api_bairros'),
     path('api/stats', api_stats, name='api_stats'),
+    path('api/bootstrap', api_bootstrap, name='api_bootstrap'),
     path('api/filters', api_filters, name='api_filters'),
     path('api/stats/filtered', api_stats_filtered, name='api_stats_filtered'),
     path('api/properties', api_properties, name='api_properties'),
